@@ -1,0 +1,46 @@
+{
+  "system": {
+    "reservoirs": [
+      {
+        "name": "TurkeysNest",
+        "capacity_ML": 1300,
+        "initial_level_ML": 1200,
+        "surface_area_m\u00b2": 200000,
+        "losses": {
+          "seepage_ML_day": 0.2
+        },
+        "inflows": {
+          "fluvial": {
+            "coefficient_ML_per_mm": 0.0,
+            "min_rain_mm": 0.0
+          }
+        }
+      },
+      {
+        "name": "SurhsCreek",
+        "capacity_ML": 1380,
+        "initial_level_ML": 1200,
+        "surface_area_m\u00b2": 240000,
+        "losses": {
+          "seepage_ML_day": 0.24
+        },
+        "inflows": {
+          "fluvial": {
+            "coefficient_ML_per_mm": 0.3,
+            "min_rain_mm": 12.0
+          }
+        }
+      }
+    ],
+    "pumps": [
+      {
+        "name": "BurdekinToTurkeysNest",
+        "max_rate_ML_day": 34
+      },
+      {
+        "name": "TurkeysNestToSurhsCreek",
+        "max_rate_ML_day": 10.5
+      }
+    ]
+  }
+}
