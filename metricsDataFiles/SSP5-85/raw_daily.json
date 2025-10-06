@@ -1,0 +1,324 @@
+{
+  "model": "ACCESS-CM2",
+  "experiment": "ssp585",
+  "variant": "r1i1p1f1",
+  "grid": "gn",
+  "table_id": "day",
+  "calendar": "",
+  "lat_coord": "lat",
+  "lon_coord": "lon",
+  "ravenswood_target": {
+    "lat": -20.115,
+    "lon": 146.9
+  },
+  "ravenswood_cell": {
+    "centre": {
+      "lat": -20.625,
+      "lon": 147.1875
+    },
+    "bounds": {
+      "lat": [
+        -21.25,
+        -20.0
+      ],
+      "lon": [
+        146.25,
+        148.125
+      ]
+    }
+  },
+  "created": "2025-10-03T06:59:30Z",
+  "scenario": "SSP5-85",
+  "time_range": [
+    "2015-01-01",
+    "2099-12-31"
+  ],
+  "variables": {
+    "tas": "degC",
+    "tasmax": "degC",
+    "pr": "mm/day totals",
+    "wind": "m/s",
+    "huss": "g/kg",
+    "psl": "hPa"
+  },
+  "file_counts": {
+    "tas": 2,
+    "tasmax": 2,
+    "pr": 2,
+    "sfcWind": 2,
+    "huss": 2,
+    "psl": 2
+  },
+  "files": [
+    {
+      "var": "tas",
+      "path": "/Users/ken/PycharmProjects/climateData/rawDataFiles/SSP5-85/tas_day_ACCESS-CM2_ssp585_r1i1p1f1_gn_20150101-20640705.nc",
+      "bytes": 1364513223
+    },
+    {
+      "var": "tas",
+      "path": "/Users/ken/PycharmProjects/climateData/rawDataFiles/SSP5-85/tas_day_ACCESS-CM2_ssp585_r1i1p1f1_gn_20640706-20991231.nc",
+      "bytes": 985246623
+    },
+    {
+      "var": "tasmax",
+      "path": "/Users/ken/PycharmProjects/climateData/rawDataFiles/SSP5-85/tasmax_day_ACCESS-CM2_ssp585_r1i1p1f1_gn_20150101-20640705.nc",
+      "bytes": 1368252055
+    },
+    {
+      "var": "tasmax",
+      "path": "/Users/ken/PycharmProjects/climateData/rawDataFiles/SSP5-85/tasmax_day_ACCESS-CM2_ssp585_r1i1p1f1_gn_20640706-20991231.nc",
+      "bytes": 988612659
+    },
+    {
+      "var": "pr",
+      "path": "/Users/ken/PycharmProjects/climateData/rawDataFiles/SSP5-85/pr_day_ACCESS-CM2_ssp585_r1i1p1f1_gn_20150101-20640705.nc",
+      "bytes": 1832953703
+    },
+    {
+      "var": "pr",
+      "path": "/Users/ken/PycharmProjects/climateData/rawDataFiles/SSP5-85/pr_day_ACCESS-CM2_ssp585_r1i1p1f1_gn_20640706-20991231.nc",
+      "bytes": 1317748778
+    },
+    {
+      "var": "sfcWind",
+      "path": "/Users/ken/PycharmProjects/climateData/rawDataFiles/SSP5-85/sfcWind_day_ACCESS-CM2_ssp585_r1i1p1f1_gn_20150101-20640705.nc",
+      "bytes": 1642812725
+    },
+    {
+      "var": "sfcWind",
+      "path": "/Users/ken/PycharmProjects/climateData/rawDataFiles/SSP5-85/sfcWind_day_ACCESS-CM2_ssp585_r1i1p1f1_gn_20640706-20991231.nc",
+      "bytes": 1185512952
+    },
+    {
+      "var": "huss",
+      "path": "/Users/ken/PycharmProjects/climateData/rawDataFiles/SSP5-85/huss_day_ACCESS-CM2_ssp585_r1i1p1f1_gn_20150101-20640705.nc",
+      "bytes": 1765491338
+    },
+    {
+      "var": "huss",
+      "path": "/Users/ken/PycharmProjects/climateData/rawDataFiles/SSP5-85/huss_day_ACCESS-CM2_ssp585_r1i1p1f1_gn_20640706-20991231.nc",
+      "bytes": 1270213348
+    },
+    {
+      "var": "psl",
+      "path": "/Users/ken/PycharmProjects/climateData/rawDataFiles/SSP5-85/psl_day_ACCESS-CM2_ssp585_r1i1p1f1_gn_20150101-20640705.nc",
+      "bytes": 1304082008
+    },
+    {
+      "var": "psl",
+      "path": "/Users/ken/PycharmProjects/climateData/rawDataFiles/SSP5-85/psl_day_ACCESS-CM2_ssp585_r1i1p1f1_gn_20640706-20991231.nc",
+      "bytes": 939702647
+    }
+  ],
+  "date": {
+    "column": "time"
+  },
+  "columns": {
+    "tas": "tas_Ravenswood_degC",
+    "tasmax": "tasmax_Ravenswood_degC",
+    "pr": "pr_Ravenswood_mm_day",
+    "wind": "wind_Ravenswood_ms",
+    "huss": "huss_Ravenswood_g_per_kg",
+    "psl": "psl_Ravenswood_hPa"
+  },
+  "parquet": {
+    "rows": 31046,
+    "columns": 12,
+    "compression": "zstd",
+    "index_name": "time",
+    "column_order": [
+      "tas_Australia_degC",
+      "tas_Ravenswood_degC",
+      "pr_Australia_mm_day",
+      "pr_Ravenswood_mm_day",
+      "wind_Australia_ms",
+      "wind_Ravenswood_ms",
+      "tasmax_Australia_degC",
+      "tasmax_Ravenswood_degC",
+      "huss_Australia_g_per_kg",
+      "huss_Ravenswood_g_per_kg",
+      "psl_Australia_hPa",
+      "psl_Ravenswood_hPa"
+    ]
+  },
+  "data_layout": {
+    "schema_version": "1.1",
+    "index": {
+      "name": "time",
+      "kind": "date",
+      "dtype": "string-YYYY-MM-DD",
+      "freq": "D",
+      "start": "2015-01-01",
+      "end": "2099-12-31"
+    },
+    "columns": [
+      {
+        "name": "tas_Australia_degC",
+        "dtype": "float64",
+        "variable": "tas",
+        "region": "Australia",
+        "unit": "degC",
+        "non_null": 31046,
+        "nulls": 0,
+        "min": 12.736234642154315,
+        "max": 22.095360615791225
+      },
+      {
+        "name": "tas_Ravenswood_degC",
+        "dtype": "float64",
+        "variable": "tas",
+        "region": "Ravenswood",
+        "unit": "degC",
+        "non_null": 31046,
+        "nulls": 0,
+        "min": 9.673980712890625,
+        "max": 42.228424072265625
+      },
+      {
+        "name": "pr_Australia_mm_day",
+        "dtype": "float64",
+        "variable": "pr",
+        "region": "Australia",
+        "unit": "mm_day",
+        "non_null": 31046,
+        "nulls": 0,
+        "min": 2.6816964609609943,
+        "max": 3.9922081331167663
+      },
+      {
+        "name": "pr_Ravenswood_mm_day",
+        "dtype": "float64",
+        "variable": "pr",
+        "region": "Ravenswood",
+        "unit": "mm_day",
+        "non_null": 31046,
+        "nulls": 0,
+        "min": 0.0,
+        "max": 294.96613293886185
+      },
+      {
+        "name": "wind_Australia_ms",
+        "dtype": "float64",
+        "variable": "wind",
+        "region": "Australia",
+        "unit": "ms",
+        "non_null": 31046,
+        "nulls": 0,
+        "min": 5.420396573434719,
+        "max": 6.968411220486485
+      },
+      {
+        "name": "wind_Ravenswood_ms",
+        "dtype": "float64",
+        "variable": "wind",
+        "region": "Ravenswood",
+        "unit": "ms",
+        "non_null": 31046,
+        "nulls": 0,
+        "min": 0.4881439208984375,
+        "max": 9.459144592285156
+      },
+      {
+        "name": "tasmax_Australia_degC",
+        "dtype": "float64",
+        "variable": "tasmax",
+        "region": "Australia",
+        "unit": "degC",
+        "non_null": 31046,
+        "nulls": 0,
+        "min": 14.32728914886718,
+        "max": 23.922992185946633
+      },
+      {
+        "name": "tasmax_Ravenswood_degC",
+        "dtype": "float64",
+        "variable": "tasmax",
+        "region": "Ravenswood",
+        "unit": "degC",
+        "non_null": 31046,
+        "nulls": 0,
+        "min": 11.996490478515625,
+        "max": 50.231842041015625
+      },
+      {
+        "name": "huss_Australia_g_per_kg",
+        "dtype": "float64",
+        "variable": "huss",
+        "region": "Australia",
+        "unit": "g_per_kg",
+        "non_null": 31046,
+        "nulls": 0,
+        "min": 9.52264914962148,
+        "max": 14.238080022589159
+      },
+      {
+        "name": "huss_Ravenswood_g_per_kg",
+        "dtype": "float64",
+        "variable": "huss",
+        "region": "Ravenswood",
+        "unit": "g_per_kg",
+        "non_null": 31046,
+        "nulls": 0,
+        "min": 2.048659324645996,
+        "max": 27.691755294799805
+      },
+      {
+        "name": "psl_Australia_hPa",
+        "dtype": "float64",
+        "variable": "psl",
+        "region": "Australia",
+        "unit": "hPa",
+        "non_null": 31046,
+        "nulls": 0,
+        "min": 1011.5141019623437,
+        "max": 1012.7151282300741
+      },
+      {
+        "name": "psl_Ravenswood_hPa",
+        "dtype": "float64",
+        "variable": "psl",
+        "region": "Ravenswood",
+        "unit": "hPa",
+        "non_null": 31046,
+        "nulls": 0,
+        "min": 993.0018920898438,
+        "max": 1028.215576171875
+      }
+    ],
+    "column_order": [
+      "tas_Australia_degC",
+      "tas_Ravenswood_degC",
+      "pr_Australia_mm_day",
+      "pr_Ravenswood_mm_day",
+      "wind_Australia_ms",
+      "wind_Ravenswood_ms",
+      "tasmax_Australia_degC",
+      "tasmax_Ravenswood_degC",
+      "huss_Australia_g_per_kg",
+      "huss_Ravenswood_g_per_kg",
+      "psl_Australia_hPa",
+      "psl_Ravenswood_hPa"
+    ],
+    "rows": 31046,
+    "variables_present": [
+      "huss",
+      "pr",
+      "psl",
+      "tas",
+      "tasmax",
+      "wind"
+    ],
+    "regions_present": [
+      "Australia",
+      "Ravenswood"
+    ],
+    "units_present": [
+      "degC",
+      "g_per_kg",
+      "hPa",
+      "mm_day",
+      "ms"
+    ]
+  }
+}

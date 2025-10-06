@@ -1,0 +1,33 @@
+{
+  "scenarios_generated": 3,
+  "baseline_period": "1968-10-01 to 2025-10-05",
+  "projection_period": "2026 to 2099",
+  "typical_fdc_rating": "EXCELLENT",
+  "typical_fdc_gaps": {
+    "Q10": "4.6%",
+    "Q05": "3.8%",
+    "Q01": "3.6%"
+  },
+  "typical_statistics": {
+    "mean_gap": "17.4%",
+    "std_gap": "39.2%",
+    "wet_season_gap": "17.0%",
+    "dry_season_gap": "23.8%",
+    "annual_cv_gap": "48.2%"
+  },
+  "extreme_scenarios": {
+    "drought_mean_ML_day": "495",
+    "rain_mean_ML_day": "67875",
+    "drought_vs_baseline": "-96.0%",
+    "rain_vs_baseline": "449.8%"
+  },
+  "files_created": [
+    "flows_bootstrap_typical.parquet",
+    "flows_extreme_drought.parquet",
+    "flows_extreme_rain.parquet",
+    "flows_scenarios_metadata.json",
+    "fdc_all_scenarios.png",
+    "fdc_typical_vs_baseline.png",
+    "fdc_all_scenarios.csv"
+  ]
+}

@@ -4,6 +4,7 @@
       {
         "name": "TurkeysNest",
         "capacity_ML": 1300,
+	"min_capacity_ML": 150,
         "initial_level_ML": 1200,
         "surface_area_m\u00b2": 200000,
         "losses": {
@@ -19,6 +20,7 @@
       {
         "name": "SurhsCreek",
         "capacity_ML": 1380,
+	"min_capacity_ML": 180,
         "initial_level_ML": 1200,
         "surface_area_m\u00b2": 240000,
         "losses": {
@@ -35,11 +37,15 @@
     "pumps": [
       {
         "name": "BurdekinToTurkeysNest",
-        "max_rate_ML_day": 34
+        "max_rate_in_ML_day": 34,
+	"max_rate_out_ML_day":10.5,
+        "cutoffs": { "low_flow_ML_day": 543.0, "high_flow_ML_day": 100000.0 }
       },
       {
         "name": "TurkeysNestToSurhsCreek",
-        "max_rate_ML_day": 10.5
+        "max_rate_in_ML_day": 10.5,
+	"max_rate_out_ML_day": 10.0,
+        "cutoffs": { "low_flow_ML_day": null, "high_flow_ML_day": null }
       }
     ]
   }
