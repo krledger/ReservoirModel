@@ -3,18 +3,20 @@
   "site": "120002C",
   "baseline": {
     "start": "1968-10-01",
-    "end": "2025-10-05",
-    "days": 20810
+    "end": "2025-10-06",
+    "days": 20811
   },
   "year_classification": {
     "method": "Hydrological year (Nov-Oct) total flow percentiles",
-    "drought_years": [
+    "severe_drought_years": [
       1969,
+      1993,
+      2015
+    ],
+    "drought_years": [
       1985,
       1987,
-      1993,
-      1995,
-      2015
+      1995
     ],
     "typical_years": [
       1970,
@@ -63,31 +65,45 @@
       2024
     ],
     "extreme_rain_years": [
-      1974,
       1981,
-      1991,
-      2009,
       2011,
       2019
+    ],
+    "severe_rain_years": [
+      1974,
+      1991,
+      2009
     ]
   },
   "scenarios": {
     "TYPICAL": {
-      "description": "Bootstrap from middle 80% of years by annual flow",
+      "description": "Bootstrap from 10th-90th percentile years",
       "file": "flows_bootstrap_typical.parquet",
       "sampling_pool": "44 hydrological years",
       "start": "1968-10-01",
       "end": "2099-12-31"
     },
     "DROUGHT": {
-      "description": "Most severe year from bottom 10%",
+      "description": "Moderate drought (10th percentile)",
       "file": "flows_extreme_drought.parquet",
       "template_span": "2000-11-01 to 2001-10-31",
       "days": 365
     },
+    "SEVERE_DROUGHT": {
+      "description": "Severe drought (5th percentile)",
+      "file": "flows_severe_drought.parquet",
+      "template_span": "2000-11-01 to 2001-10-31",
+      "days": 365
+    },
     "EXTREME_RAIN": {
-      "description": "Most severe year from top 10%",
+      "description": "Extreme rain (90th percentile)",
       "file": "flows_extreme_rain.parquet",
+      "template_span": "2000-11-01 to 2001-10-31",
+      "days": 365
+    },
+    "SEVERE_RAIN": {
+      "description": "Severe rain/flooding (95th percentile)",
+      "file": "flows_severe_rain.parquet",
       "template_span": "2000-11-01 to 2001-10-31",
       "days": 365
     }
