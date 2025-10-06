@@ -1,42 +1,43 @@
 {
   "title": "Sellheim daily flows \u2013 scenarios for reservoir modeling",
   "site": "120002C",
+  "generation_date": "2025-10-06 16:38:56",
   "baseline": {
     "start": "1968-10-01",
-    "end": "2025-10-06",
-    "days": 20811
+    "end": "2024-05-15",
+    "days": 20302,
+    "years": "1968-2024",
+    "data_source": {
+      "discharge": "ATQ",
+      "level": "AT"
+    },
+    "quality_control": {
+      "bad_quality_codes_filtered": "\u2265200 or 255",
+      "interpolation_method": "linear",
+      "interpolation_limit_days": 30,
+      "leap_days_removed": true
+    }
   },
   "year_classification": {
     "method": "Hydrological year (Nov-Oct) total flow percentiles",
+    "baseline_period": "1990-2020",
+    "classification_basis": "Annual total flow (ML/year)",
+    "thresholds": {
+      "5th_percentile": "407,457 ML/year",
+      "10th_percentile": "599,144 ML/year",
+      "90th_percentile": "12,489,096 ML/year",
+      "95th_percentile": "18,163,242 ML/year"
+    },
     "severe_drought_years": [
-      1969,
       1993,
       2015
     ],
     "drought_years": [
-      1985,
-      1987,
+      1992,
       1995
     ],
     "typical_years": [
-      1970,
-      1971,
-      1972,
-      1973,
-      1975,
-      1976,
-      1977,
-      1978,
-      1979,
-      1980,
-      1982,
-      1983,
-      1984,
-      1986,
-      1988,
-      1989,
       1990,
-      1992,
       1994,
       1996,
       1997,
@@ -58,54 +59,113 @@
       2016,
       2017,
       2018,
-      2020,
-      2021,
-      2022,
-      2023,
-      2024
+      2020
     ],
     "extreme_rain_years": [
-      1981,
       2011,
       2019
     ],
     "severe_rain_years": [
-      1974,
       1991,
       2009
-    ]
+    ],
+    "count": {
+      "severe_drought": 2,
+      "drought": 2,
+      "typical": 23,
+      "extreme_rain": 2,
+      "severe_rain": 2
+    }
+  },
+  "bootstrap_parameters": {
+    "block_size_days": 14,
+    "long_block_size_days": 90,
+    "long_block_probability": 0.7,
+    "max_block_reuse_per_25y": 6,
+    "random_seed": 42,
+    "seasonal_definitions": {
+      "wet_season": "Nov-Apr",
+      "dry_season": "May-Oct"
+    },
+    "weighting": "Downweighted blocks containing 98th percentile flows"
   },
   "scenarios": {
     "TYPICAL": {
       "description": "Bootstrap from 10th-90th percentile years",
       "file": "flows_bootstrap_typical.parquet",
-      "sampling_pool": "44 hydrological years",
+      "method": "Seasonal block bootstrap",
+      "sampling_pool": "23 hydrological years",
       "start": "1968-10-01",
-      "end": "2099-12-31"
+      "end": "2099-12-31",
+      "days": 47907,
+      "statistics": {
+        "mean_ML_day": "9766",
+        "max_ML_day": "1,354,546",
+        "min_ML_day": "0.0"
+      }
     },
     "DROUGHT": {
       "description": "Moderate drought (10th percentile)",
       "file": "flows_extreme_drought.parquet",
+      "method": "Single worst year from 10th percentile category",
       "template_span": "2000-11-01 to 2001-10-31",
-      "days": 365
+      "days": 365,
+      "source_year": 1992,
+      "statistics": {
+        "total_annual_ML": "591,105",
+        "mean_ML_day": "1619",
+        "max_ML_day": "67,693"
+      }
     },
     "SEVERE_DROUGHT": {
       "description": "Severe drought (5th percentile)",
       "file": "flows_severe_drought.parquet",
+      "method": "Single worst year from 5th percentile category",
       "template_span": "2000-11-01 to 2001-10-31",
-      "days": 365
+      "days": 365,
+      "source_year": 1993,
+      "statistics": {
+        "total_annual_ML": "189,275",
+        "mean_ML_day": "519",
+        "max_ML_day": "13,201"
+      }
     },
     "EXTREME_RAIN": {
       "description": "Extreme rain (90th percentile)",
       "file": "flows_extreme_rain.parquet",
+      "method": "Single wettest year from 90th percentile category",
       "template_span": "2000-11-01 to 2001-10-31",
-      "days": 365
+      "days": 365,
+      "source_year": 2019,
+      "statistics": {
+        "total_annual_ML": "17,093,357",
+        "mean_ML_day": "46831",
+        "max_ML_day": "1,364,649"
+      }
     },
     "SEVERE_RAIN": {
       "description": "Severe rain/flooding (95th percentile)",
       "file": "flows_severe_rain.parquet",
+      "method": "Single wettest year from 95th percentile category",
       "template_span": "2000-11-01 to 2001-10-31",
-      "days": 365
+      "days": 365,
+      "source_year": 2009,
+      "statistics": {
+        "total_annual_ML": "19,505,669",
+        "mean_ML_day": "53440",
+        "max_ML_day": "1,790,672"
+      }
     }
+  },
+  "usage_notes": {
+    "typical_scenario": "Use for baseline/reference modeling. Contains full historical record plus bootstrap projection to 2099.",
+    "extreme_templates": "365-day templates for drought/rain years. Use insert_extreme_year.py to inject into specific years.",
+    "hydrological_year": "Nov 1 to Oct 31. Template dates are 2000-11-01 to 2001-10-31 for compatibility.",
+    "no_leap_days": "Feb 29 removed from all scenarios for consistent 365-day years."
+  },
+  "citations": {
+    "data_source": "Queensland Government Water Monitoring Information Portal (WMIP)",
+    "url": "https://water-monitoring.information.qld.gov.au/",
+    "method_reference": "Seasonal block bootstrap with hydrological year classification"
   }
 }
