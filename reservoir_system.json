@@ -8,7 +8,7 @@
         "initial_level_ML": 1200,
         "surface_area_m\u00b2": 200000,
         "losses": {
-          "seepage_ML_day": 0.2
+          "seepage_ML_day": 1.0
         },
         "inflows": {
           "fluvial": {
@@ -24,11 +24,11 @@
         "initial_level_ML": 1200,
         "surface_area_m\u00b2": 240000,
         "losses": {
-          "seepage_ML_day": 0.24
+          "seepage_ML_day": 1.0
         },
         "inflows": {
           "fluvial": {
-            "coefficient_ML_per_mm": 0.3,
+            "coefficient_ML_per_mm": 0.03,
             "min_rain_mm": 12.0
           }
         }
@@ -39,7 +39,7 @@
         "name": "BurdekinToTurkeysNest",
         "max_rate_in_ML_day": 34,
 	"max_rate_out_ML_day":10.5,
-        "cutoffs": { "low_flow_ML_day": 543.0, "high_flow_ML_day": 100000.0 }
+        "cutoffs": { "low_flow_ML_day": 432.0, "high_flow_ML_day": 100000.0 }
       },
       {
         "name": "TurkeysNestToSurhsCreek",

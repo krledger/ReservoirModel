@@ -201,107 +201,120 @@ class ReservoirSystem:
         # Get configuration
         reservoirs = self.system_config['system']['reservoirs']
         pumps = self.system_config['system']['pumps']
-        turkeys_nest = reservoirs[0]
-        surhs_creek = reservoirs[1]
+        r1_turkeys = reservoirs[0]
+        r2_surhs = reservoirs[1]
 
-        turkeys_min_capacity = turkeys_nest.get('min_capacity_ML', 0)
-        surhs_min_capacity = surhs_creek.get('min_capacity_ML', 0)
+        r1_min_capacity = r1_turkeys.get('min_capacity_ML', 0)
+        r2_min_capacity = r2_surhs.get('min_capacity_ML', 0)
 
         # Initialize arrays
         n = len(data)
-        turkeys_level = np.zeros(n)
-        surhs_level = np.zeros(n)
-        pump1_flow = np.zeros(n)
-        pump2_flow = np.zeros(n)
-        pump3_flow = np.zeros(n)
+        r1_level = np.zeros(n)
+        r2_level = np.zeros(n)
+        pump_river_to_r1 = np.zeros(n)
+        pump_r1_to_r2 = np.zeros(n)
+        pump_r2_to_site = np.zeros(n)
         fluvial_inflow = np.zeros(n)
-        pluvial_inflow_turkeys = np.zeros(n)
-        pluvial_inflow_surhs = np.zeros(n)
+        pluvial_inflow_r1 = np.zeros(n)
+        pluvial_inflow_r2 = np.zeros(n)
         total_inflow = np.zeros(n)
-        turkeys_evap_loss = np.zeros(n)
-        surhs_evap_loss = np.zeros(n)
+        r1_evap_loss = np.zeros(n)
+        r2_evap_loss = np.zeros(n)
         demand_supplied = np.zeros(n)
         demand_deficit = np.zeros(n)
 
         # Initial levels
-        turkeys_level[0] = params.get('turkeys_initial', turkeys_nest['initial_level_ML'])
-        surhs_level[0] = params.get('surhs_initial', surhs_creek['initial_level_ML'])
+        r1_level[0] = params.get('r1_initial', r1_turkeys['initial_level_ML'])
+        r2_level[0] = params.get('r2_initial', r2_surhs['initial_level_ML'])
 
-        # Parameters
-        pump1_max_in = params.get('pump1_max_in_rate', pumps[0]['max_rate_in_ML_day'])
-        pump1_max_out = params.get('pump1_max_out_rate', pumps[0]['max_rate_out_ML_day'])
-        pump2_max_out = params.get('pump2_max_out_rate', pumps[1]['max_rate_out_ML_day'])
-        low_cutoff = params.get('pump1_low_cutoff', pumps[0]['cutoffs']['low_flow_ML_day'])
-        high_cutoff = params.get('pump1_high_cutoff', pumps[0]['cutoffs']['high_flow_ML_day'])
+        # PUMP RATE PARAMETERS - CLEARLY NAMED
+        pump_river_to_r1_max = params.get('pump_river_to_r1_max', pumps[0]['max_rate_in_ML_day'])
+        pump_r1_to_r2_max = params.get('pump_r1_to_r2_max', pumps[0]['max_rate_out_ML_day'])
+        pump_r2_to_site_max = params.get('pump_r2_to_site_max', pumps[1]['max_rate_out_ML_day'])
+
+        # RIVER FLOW CUTOFFS FOR PUMP_RIVER_TO_R1
+        low_cutoff = params.get('river_pump_low_cutoff', pumps[0]['cutoffs']['low_flow_ML_day'])
+        high_cutoff = params.get('river_pump_high_cutoff', pumps[0]['cutoffs']['high_flow_ML_day'])
+
         demand_ML_day = params.get('demand_ML_day', 9.8)
 
         # Simulation loop
         for i in range(1, n):
-            tn_level = turkeys_level[i - 1]
-            sc_level = surhs_level[i - 1]
+            r1_current = r1_level[i - 1]
+            r2_current = r2_level[i - 1]
 
-            # Pump 1: River to Turkeys Nest
-            available_capacity_tn = turkeys_nest['capacity_ML'] - tn_level
-            if river_flow[i] >= low_cutoff and river_flow[i] <= high_cutoff and available_capacity_tn > 0:
-                pump1 = min(pump1_max_in, available_capacity_tn)
+            # =====================================================
+            # PUMP: RIVER → R1 (Turkeys Nest)
+            # =====================================================
+            available_capacity_r1 = r1_turkeys['capacity_ML'] - r1_current
+            if river_flow[i] >= low_cutoff and river_flow[i] <= high_cutoff and available_capacity_r1 > 0:
+                pump_river_to_r1[i] = min(pump_river_to_r1_max, available_capacity_r1)
             else:
-                pump1 = 0
-            pump1_flow[i] = pump1
+                pump_river_to_r1[i] = 0
 
-            # Fluvial inflow
-            if precipitation[i] >= surhs_creek['inflows']['fluvial']['min_rain_mm']:
-                fluvial = precipitation[i] * surhs_creek['inflows']['fluvial']['coefficient_ML_per_mm']
+            # =====================================================
+            # FLUVIAL INFLOW (to R2 only)
+            # =====================================================
+            if precipitation[i] >= r2_surhs['inflows']['fluvial']['min_rain_mm']:
+                fluvial_inflow[i] = precipitation[i] * r2_surhs['inflows']['fluvial']['coefficient_ML_per_mm']
             else:
-                fluvial = 0
-            fluvial_inflow[i] = fluvial
+                fluvial_inflow[i] = 0
 
-            # Pluvial inflow
+            # =====================================================
+            # PLUVIAL INFLOW (direct rainfall on reservoir surfaces)
+            # =====================================================
             if precipitation[i] >= 2.0:
-                pluvial_turkeys = (precipitation[i] / 1000) * turkeys_nest['surface_area_m²'] / 1000
-                pluvial_surhs = (precipitation[i] / 1000) * surhs_creek['surface_area_m²'] / 1000
+                pluvial_inflow_r1[i] = (precipitation[i] / 1000) * r1_turkeys['surface_area_m²'] / 1000
+                pluvial_inflow_r2[i] = (precipitation[i] / 1000) * r2_surhs['surface_area_m²'] / 1000
             else:
-                pluvial_turkeys = 0
-                pluvial_surhs = 0
+                pluvial_inflow_r1[i] = 0
+                pluvial_inflow_r2[i] = 0
 
-            pluvial_inflow_turkeys[i] = pluvial_turkeys
-            pluvial_inflow_surhs[i] = pluvial_surhs
-            total_inflow[i] = fluvial + pluvial_surhs
+            total_inflow[i] = fluvial_inflow[i] + pluvial_inflow_r2[i]
 
-            # Evaporation
-            tn_evap = (evaporation_mm[i] / 1000) * turkeys_nest['surface_area_m²'] / 1000
-            sc_evap = (evaporation_mm[i] / 1000) * surhs_creek['surface_area_m²'] / 1000
-            turkeys_evap_loss[i] = tn_evap
-            surhs_evap_loss[i] = sc_evap
+            # =====================================================
+            # EVAPORATION LOSSES
+            # =====================================================
+            r1_evap_loss[i] = (evaporation_mm[i] / 1000) * r1_turkeys['surface_area_m²'] / 1000
+            r2_evap_loss[i] = (evaporation_mm[i] / 1000) * r2_surhs['surface_area_m²'] / 1000
 
-            # Update Turkeys Nest
-            tn_level += pump1 + pluvial_turkeys
-            tn_level -= turkeys_nest['losses']['seepage_ML_day'] + tn_evap
+            # =====================================================
+            # UPDATE R1 (TURKEYS NEST)
+            # =====================================================
+            r1_current += pump_river_to_r1[i] + pluvial_inflow_r1[i]
+            r1_current -= r1_turkeys['losses']['seepage_ML_day'] + r1_evap_loss[i]
 
-            # Pump 2: Turkeys Nest to Surhs Creek
-            available_water_tn = max(0, tn_level - turkeys_min_capacity)
-            pump2 = min(pump1_max_out, available_water_tn)
-            pump2 = max(0, pump2)
-            pump2_flow[i] = pump2
-            tn_level -= pump2
-            tn_level = max(turkeys_min_capacity, min(tn_level, turkeys_nest['capacity_ML']))
-            turkeys_level[i] = tn_level
+            # =====================================================
+            # PUMP: R1 → R2 (Turkeys Nest → Surhs Creek)
+            # =====================================================
+            available_water_r1 = max(0, r1_current - r1_min_capacity)
+            pump_r1_to_r2[i] = min(pump_r1_to_r2_max, available_water_r1)
+            pump_r1_to_r2[i] = max(0, pump_r1_to_r2[i])
 
-            # Update Surhs Creek
-            sc_level += pump2 + fluvial + pluvial_surhs
-            sc_level -= surhs_creek['losses']['seepage_ML_day'] + sc_evap
+            r1_current -= pump_r1_to_r2[i]
+            r1_current = max(r1_min_capacity, min(r1_current, r1_turkeys['capacity_ML']))
+            r1_level[i] = r1_current
 
-            # Pump 3: Demand supply
-            available_water_sc = max(0, sc_level - surhs_min_capacity)
-            pump3 = min(demand_ML_day, available_water_sc)
-            pump3 = max(0, pump3)
-            pump3_flow[i] = pump3
-            sc_level -= pump3
+            # =====================================================
+            # UPDATE R2 (SURHS CREEK)
+            # =====================================================
+            r2_current += pump_r1_to_r2[i] + fluvial_inflow[i] + pluvial_inflow_r2[i]
+            r2_current -= r2_surhs['losses']['seepage_ML_day'] + r2_evap_loss[i]
 
-            demand_supplied[i] = pump3
-            demand_deficit[i] = demand_ML_day - pump3
+            # =====================================================
+            # PUMP: R2 → SITE (Surhs Creek → Demand)
+            # =====================================================
+            available_water_r2 = max(0, r2_current - r2_min_capacity)
+            pump_r2_to_site[i] = min(pump_r2_to_site_max, demand_ML_day, available_water_r2)
+            pump_r2_to_site[i] = max(0, pump_r2_to_site[i])
 
-            sc_level = max(surhs_min_capacity, min(sc_level, surhs_creek['capacity_ML']))
-            surhs_level[i] = sc_level
+            r2_current -= pump_r2_to_site[i]
+
+            demand_supplied[i] = pump_r2_to_site[i]
+            demand_deficit[i] = demand_ML_day - pump_r2_to_site[i]
+
+            r2_current = max(r2_min_capacity, min(r2_current, r2_surhs['capacity_ML']))
+            r2_level[i] = r2_current
 
         # Create results dataframe
         results = pd.DataFrame({
@@ -313,16 +326,16 @@ class ReservoirSystem:
             'precipitation_mm_day': precipitation,
             'evaporation_mm_day': evaporation_mm,
             'fluvial_inflow_ML': fluvial_inflow,
-            'pluvial_inflow_turkeys_ML': pluvial_inflow_turkeys,
-            'pluvial_inflow_surhs_ML': pluvial_inflow_surhs,
+            'pluvial_inflow_r1_ML': pluvial_inflow_r1,
+            'pluvial_inflow_r2_ML': pluvial_inflow_r2,
             'total_inflow_ML': total_inflow,
-            'turkeys_evap_ML_day': turkeys_evap_loss,
-            'surhs_evap_ML_day': surhs_evap_loss,
-            'pump1_flow_ML_day': pump1_flow,
-            'pump2_flow_ML_day': pump2_flow,
-            'pump3_flow_ML_day': pump3_flow,
-            'turkeys_nest_level_ML': turkeys_level,
-            'surhs_creek_level_ML': surhs_level,
+            'r1_evap_ML_day': r1_evap_loss,
+            'r2_evap_ML_day': r2_evap_loss,
+            'pump_river_to_r1_ML_day': pump_river_to_r1,
+            'pump_r1_to_r2_ML_day': pump_r1_to_r2,
+            'pump_r2_to_site_ML_day': pump_r2_to_site,
+            'r1_level_ML': r1_level,
+            'r2_level_ML': r2_level,
             'demand_supplied_ML': demand_supplied,
             'demand_deficit_ML': demand_deficit
         })
@@ -447,35 +460,61 @@ with st.sidebar.expander("💧 Water Demand", expanded=False):
     demand = st.number_input("Demand (ML/day)", min_value=0.0, value=9.8, step=0.1)
 
 with st.sidebar.expander("⚙️ Pump Settings", expanded=False):
-    pump1_max_in = st.number_input("Pump 1 Max In (ML/day)", min_value=0, value=int(pumps[0]['max_rate_in_ML_day']),
-                                   step=1)
-    pump1_max_out = st.number_input("Pump 1 Max Out (ML/day)", min_value=0.0,
-                                    value=float(pumps[0]['max_rate_out_ML_day']), step=0.1)
+    st.markdown("**Pump: River → R1 (Turkeys Nest)**")
+    pump_river_to_r1_max = st.number_input(
+        "Max Rate (ML/day)",
+        min_value=0,
+        value=int(pumps[0]['max_rate_in_ML_day']),
+        step=1,
+        key="pump_river_r1"
+    )
 
-with st.sidebar.expander("🎯 Flow Cutoffs", expanded=False):
-    pump1_low = st.number_input("Pump 1 Low Cutoff (ML/day)", min_value=0,
-                                value=int(pumps[0]['cutoffs']['low_flow_ML_day']), step=1)
-    pump1_high = st.number_input("Pump 1 High Cutoff (ML/day)", min_value=0,
-                                 value=int(pumps[0]['cutoffs']['high_flow_ML_day']), step=100)
+    st.markdown("**Pump: R1 → R2 (Turkeys → Surhs)**")
+    pump_r1_to_r2_max = st.number_input(
+        "Max Rate (ML/day)",
+        min_value=0.0,
+        value=float(pumps[0]['max_rate_out_ML_day']),
+        step=0.1,
+        key="pump_r1_r2"
+    )
+
+    st.markdown("**Pump: R2 → Site (Surhs → Demand)**")
+    pump_r2_to_site_max = st.number_input(
+        "Max Rate (ML/day)",
+        min_value=0.0,
+        value=float(pumps[1]['max_rate_out_ML_day']),
+        step=0.1,
+        key="pump_r2_site",
+        help="Physical pump capacity limit"
+    )
+
+with st.sidebar.expander("🎯 River Flow Cutoffs (Pump River→R1)", expanded=False):
+    river_pump_low = st.number_input(
+        "Low Cutoff (ML/day)",
+        min_value=0,
+        value=int(pumps[0]['cutoffs']['low_flow_ML_day']),
+        step=1,
+        help="Minimum river flow to allow pumping"
+    )
+    river_pump_high = st.number_input(
+        "High Cutoff (ML/day)",
+        min_value=0,
+        value=int(pumps[0]['cutoffs']['high_flow_ML_day']),
+        step=100,
+        help="Maximum river flow to allow pumping"
+    )
 
 with st.sidebar.expander("🏞️ Initial Reservoir Levels", expanded=False):
-    turkeys_initial = st.number_input(
-        f"Turkeys Nest (ML, max {reservoirs[0]['capacity_ML']})",
+    r1_initial = st.number_input(
+        f"R1 - Turkeys Nest (ML, max {reservoirs[0]['capacity_ML']})",
         min_value=0, max_value=int(reservoirs[0]['capacity_ML']),
         value=int(reservoirs[0]['initial_level_ML']), step=10
     )
-    surhs_initial = st.number_input(
-        f"Surhs Creek (ML, max {reservoirs[1]['capacity_ML']})",
+    r2_initial = st.number_input(
+        f"R2 - Surhs Creek (ML, max {reservoirs[1]['capacity_ML']})",
         min_value=0, max_value=int(reservoirs[1]['capacity_ML']),
         value=int(reservoirs[1]['initial_level_ML']), step=10
     )
-
-with st.sidebar.expander("📊 Chart Display Options", expanded=False):
-    show_reservoirs = st.checkbox("Reservoir Levels", value=True)
-    show_flows = st.checkbox("River Flow", value=True)
-    show_climate = st.checkbox("Climate (Temp/Humidity/Precip)", value=True)
-    show_evap = st.checkbox("Evaporation", value=False)
-    show_inflow = st.checkbox("Inflow Components", value=False)
 
 run_simulation = st.sidebar.button("▶ Run Simulation", type="primary", use_container_width=True)
 
@@ -489,12 +528,13 @@ if run_simulation:
 
         params = {
             'demand_ML_day': demand,
-            'pump1_max_in_rate': pump1_max_in,
-            'pump1_max_out_rate': pump1_max_out,
-            'pump1_low_cutoff': pump1_low,
-            'pump1_high_cutoff': pump1_high,
-            'turkeys_initial': turkeys_initial,
-            'surhs_initial': surhs_initial
+            'pump_river_to_r1_max': pump_river_to_r1_max,
+            'pump_r1_to_r2_max': pump_r1_to_r2_max,
+            'pump_r2_to_site_max': pump_r2_to_site_max,
+            'river_pump_low_cutoff': river_pump_low,
+            'river_pump_high_cutoff': river_pump_high,
+            'r1_initial': r1_initial,
+            'r2_initial': r2_initial
         }
 
         with st.spinner('Running simulation...'):
@@ -502,17 +542,24 @@ if run_simulation:
             end_date = f"{end_year}-12-31"
             results = system.simulate_reservoir_system(start_date, end_date, params)
 
-        turkeys_min = reservoirs[0].get('min_capacity_ML', 0)
-        surhs_min = reservoirs[1].get('min_capacity_ML', 0)
+        r1_min = reservoirs[0].get('min_capacity_ML', 0)
+        r2_min = reservoirs[1].get('min_capacity_ML', 0)
 
         # Statistics
         total_deficit = results['demand_deficit_ML'].sum()
         deficit_days = (results['demand_deficit_ML'] > 0).sum()
-        avg_turkeys = results['turkeys_nest_level_ML'].mean()
-        avg_surhs = results['surhs_creek_level_ML'].mean()
-        min_surhs = results['surhs_creek_level_ML'].min()
-        days_at_min_turkeys = (results['turkeys_nest_level_ML'] <= turkeys_min + 1).sum()
-        days_at_min_surhs = (results['surhs_creek_level_ML'] <= surhs_min + 1).sum()
+        avg_r1 = results['r1_level_ML'].mean()
+        avg_r2 = results['r2_level_ML'].mean()
+        min_r2 = results['r2_level_ML'].min()
+        days_at_min_r1 = (results['r1_level_ML'] <= r1_min + 1).sum()
+        days_at_min_r2 = (results['r2_level_ML'] <= r2_min + 1).sum()
+
+        # Pump diagnostics
+        days_pump_r1_r2_zero = (results['pump_r1_to_r2_ML_day'] == 0).sum()
+        days_pump_river_r1_active = (results['pump_river_to_r1_ML_day'] > 0).sum()
+        avg_pump_r1_r2 = results['pump_r1_to_r2_ML_day'].mean()
+        total_fluvial = results['fluvial_inflow_ML'].sum()
+        total_pluvial_r2 = results['pluvial_inflow_r2_ML'].sum()
 
         scenario_desc = "TYPICAL"
         if drought_years:
@@ -522,60 +569,75 @@ if run_simulation:
 
         st.success(f"✓ Simulation Complete: {len(results)} days | Scenario: {scenario_desc}")
 
+        # Main metrics
         col1, col2, col3, col4, col5 = st.columns(5)
         col1.metric("Total Demand Deficit", f"{total_deficit:.1f} ML", f"{deficit_days} days")
-        col2.metric("Avg Turkeys Nest", f"{avg_turkeys:.1f} ML", f"{avg_turkeys / 1300 * 100:.1f}%")
-        col3.metric("Avg Surhs Creek", f"{avg_surhs:.1f} ML", f"{avg_surhs / 1380 * 100:.1f}%")
-        col4.metric("Min Surhs Creek", f"{min_surhs:.1f} ML")
-        col5.metric("Days at Min", f"TN:{days_at_min_turkeys} SC:{days_at_min_surhs}")
+        col2.metric("Avg R1 (Turkeys)", f"{avg_r1:.1f} ML", f"{avg_r1 / 1300 * 100:.1f}%")
+        col3.metric("Avg R2 (Surhs)", f"{avg_r2:.1f} ML", f"{avg_r2 / 1380 * 100:.1f}%")
+        col4.metric("Min R2 (Surhs)", f"{min_r2:.1f} ML")
+        col5.metric("Days at Min", f"R1:{days_at_min_r1} R2:{days_at_min_r2}")
 
-        # [Rest of plotting code remains the same as original...]
-        surhs_creek = system.system_config['system']['reservoirs'][1]
-        turkeys_nest = system.system_config['system']['reservoirs'][0]
+        # Pump diagnostics
+        st.markdown("### 🔍 Pump Activity Diagnostics")
+        col1, col2, col3, col4, col5 = st.columns(5)
+        col1.metric("Days R1→R2=0", f"{days_pump_r1_r2_zero}",
+                    f"{days_pump_r1_r2_zero / len(results) * 100:.1f}% of time")
+        col2.metric("Days River→R1 Active", f"{days_pump_river_r1_active}",
+                    f"{days_pump_river_r1_active / len(results) * 100:.1f}% of time")
+        col3.metric("Avg R1→R2 Flow", f"{avg_pump_r1_r2:.2f} ML/day")
+        col4.metric("Total Fluvial (R2)", f"{total_fluvial:.0f} ML")
+        col5.metric("Total Pluvial (R2)", f"{total_pluvial_r2:.0f} ML")
+
+        # [PLOTTING CODE - Updated with new names]
+        r1_turkeys = system.system_config['system']['reservoirs'][0]
+        r2_surhs = system.system_config['system']['reservoirs'][1]
 
         fig = make_subplots(
             rows=8, cols=1,
             subplot_titles=(
-                'Surhs Creek Reservoir Level (ML)',
-                'Turkeys Nest Reservoir Level (ML)',
+                'R2 (Surhs Creek) Reservoir Level (ML)',
+                'R1 (Turkeys Nest) Reservoir Level (ML)',
                 'River Flow (ML/day)',
                 'Evaporation from Reservoirs (ML/day)',
                 'Temperature - Ravenswood (°C)',
                 'Relative Humidity - Ravenswood (%)',
                 'Precipitation - Ravenswood (mm/day)',
-                'Inflow to Surhs Creek (ML/day)'
+                'Inflow to R2 - Surhs Creek (ML/day)'
             ),
             vertical_spacing=0.035,
             row_heights=[1.3, 1.3, 1, 1, 1, 1, 1, 1],
             specs=[[{"secondary_y": False}]] * 7 + [[{"secondary_y": True}]]
         )
 
-        # Plots (same as original)
+        # R2 (Surhs Creek) Level
         fig.add_trace(
-            go.Scatter(x=results.index, y=results['surhs_creek_level_ML'],
-                       name='Surhs Creek', line=dict(color='teal', width=2),
+            go.Scatter(x=results.index, y=results['r2_level_ML'],
+                       name='R2 (Surhs)', line=dict(color='teal', width=2),
                        fill='tozeroy', fillcolor='rgba(0,128,128,0.2)'),
             row=1, col=1
         )
-        fig.add_hline(y=surhs_creek['capacity_ML'], line_dash="dot", line_color="red",
-                      annotation_text=f"SC Capacity: {surhs_creek['capacity_ML']} ML", row=1, col=1)
-        if surhs_min > 0:
-            fig.add_hline(y=surhs_min, line_dash="dash", line_color="orange",
-                          annotation_text=f"SC Min: {surhs_min} ML", row=1, col=1)
+        fig.add_hline(y=r2_surhs['capacity_ML'], line_dash="dot", line_color="red",
+                      annotation_text=f"R2 Capacity: {r2_surhs['capacity_ML']} ML", row=1, col=1)
+        if r2_min > 0:
+            fig.add_hline(y=r2_min, line_dash="dash", line_color="orange",
+                          annotation_text=f"R2 Min: {r2_min} ML", row=1, col=1)
 
+        # R1 (Turkeys Nest) Level
         fig.add_trace(
-            go.Scatter(x=results.index, y=results['turkeys_nest_level_ML'],
-                       name='Turkeys Nest', line=dict(color='darkblue', width=2),
+            go.Scatter(x=results.index, y=results['r1_level_ML'],
+                       name='R1 (Turkeys)', line=dict(color='darkblue', width=2),
                        fill='tozeroy', fillcolor='rgba(0,0,139,0.2)'),
             row=2, col=1
         )
-        fig.add_hline(y=turkeys_nest['capacity_ML'], line_dash="dot", line_color="red",
-                      annotation_text=f"TN Capacity: {turkeys_nest['capacity_ML']} ML", row=2, col=1)
-        if turkeys_min > 0:
-            fig.add_hline(y=turkeys_min, line_dash="dash", line_color="orange",
-                          annotation_text=f"TN Min: {turkeys_min} ML", row=2, col=1)
+        fig.add_hline(y=r1_turkeys['capacity_ML'], line_dash="dot", line_color="red",
+                      annotation_text=f"R1 Capacity: {r1_turkeys['capacity_ML']} ML", row=2, col=1)
+        if r1_min > 0:
+            fig.add_hline(y=r1_min, line_dash="dash", line_color="orange",
+                          annotation_text=f"R1 Min: {r1_min} ML", row=2, col=1)
 
-        pump_allowed = (results['river_flow_ML_day'] >= pump1_low) & (results['river_flow_ML_day'] <= pump1_high)
+        # River Flow with Pumping Window
+        pump_allowed = (results['river_flow_ML_day'] >= river_pump_low) & (
+                    results['river_flow_ML_day'] <= river_pump_high)
         pump_status_display = pump_allowed.astype(int) * 1000000
 
         fig.add_trace(
@@ -588,32 +650,36 @@ if run_simulation:
                        name='River Flow', line=dict(color='darkblue', width=1.5, shape='hv')),
             row=3, col=1
         )
-        fig.add_hline(y=pump1_low, line_dash="dash", line_color="grey", row=3, col=1)
-        fig.add_hline(y=pump1_high, line_dash="dash", line_color="grey", row=3, col=1)
+        fig.add_hline(y=river_pump_low, line_dash="dash", line_color="grey", row=3, col=1)
+        fig.add_hline(y=river_pump_high, line_dash="dash", line_color="grey", row=3, col=1)
 
+        # Evaporation
         fig.add_trace(
-            go.Scatter(x=results.index, y=results['turkeys_evap_ML_day'],
-                       name='Evap - Turkeys Nest', line=dict(color='orange', width=1.5)),
+            go.Scatter(x=results.index, y=results['r1_evap_ML_day'],
+                       name='Evap - R1 (Turkeys)', line=dict(color='orange', width=1.5)),
             row=4, col=1
         )
         fig.add_trace(
-            go.Scatter(x=results.index, y=results['surhs_evap_ML_day'],
-                       name='Evap - Surhs Creek', line=dict(color='darkorange', width=1.5)),
+            go.Scatter(x=results.index, y=results['r2_evap_ML_day'],
+                       name='Evap - R2 (Surhs)', line=dict(color='darkorange', width=1.5)),
             row=4, col=1
         )
 
+        # Temperature
         fig.add_trace(
             go.Scatter(x=results.index, y=results['temperature_degC'],
                        name='Temperature', line=dict(color='orangered', width=1.5)),
             row=5, col=1
         )
 
+        # Humidity
         fig.add_trace(
             go.Scatter(x=results.index, y=results['relative_humidity_pct'],
                        name='Relative Humidity', line=dict(color='blue', width=1.5)),
             row=6, col=1
         )
 
+        # Precipitation
         precip_normal = results['precipitation_mm_day'].copy()
         precip_normal[precip_normal > 30] = np.nan
 
@@ -642,9 +708,10 @@ if run_simulation:
                 row=7, col=1
             )
 
-        fig.add_hline(y=surhs_creek['inflows']['fluvial']['min_rain_mm'],
+        fig.add_hline(y=r2_surhs['inflows']['fluvial']['min_rain_mm'],
                       line_dash="dash", line_color="orange", row=7, col=1)
 
+        # Inflow to R2
         fig.add_trace(
             go.Scatter(x=results.index, y=results['fluvial_inflow_ML'],
                        name='Fluvial Inflow', line=dict(color='darkgreen', width=1.5),
@@ -652,8 +719,8 @@ if run_simulation:
             row=8, col=1
         )
         fig.add_trace(
-            go.Scatter(x=results.index, y=results['pluvial_inflow_surhs_ML'],
-                       name='Pluvial Inflow (Surhs)', line=dict(color='lightgreen', width=1.5),
+            go.Scatter(x=results.index, y=results['pluvial_inflow_r2_ML'],
+                       name='Pluvial Inflow (R2)', line=dict(color='lightgreen', width=1.5),
                        stackgroup='inflow'),
             row=8, col=1
         )
@@ -668,8 +735,8 @@ if run_simulation:
 
         # Update axes
         fig.update_xaxes(title_text="Date", row=8, col=1)
-        fig.update_yaxes(title_text="ML", range=[0, surhs_creek['capacity_ML'] * 1.1], row=1, col=1)
-        fig.update_yaxes(title_text="ML", range=[0, turkeys_nest['capacity_ML'] * 1.1], row=2, col=1)
+        fig.update_yaxes(title_text="ML", range=[0, r2_surhs['capacity_ML'] * 1.1], row=1, col=1)
+        fig.update_yaxes(title_text="ML", range=[0, r1_turkeys['capacity_ML'] * 1.1], row=2, col=1)
         fig.update_yaxes(title_text="ML/day", type="log", range=[2, 6], row=3, col=1)
         fig.update_yaxes(title_text="ML/day", row=4, col=1)
         fig.update_yaxes(title_text="°C", row=5, col=1)
@@ -706,7 +773,34 @@ if run_simulation:
 else:
     st.info("👈 Configure simulation parameters and click 'Run Simulation'")
 
-    # Show available scenarios
+    # Show system diagram
+    with st.expander("🔧 System Architecture"):
+        st.markdown("""
+        ### Reservoir System Flow
+
+        ```
+        RIVER (Burdekin)
+           ↓ 
+        [Pump: River→R1] (Max: 34 ML/day, operates when 543 < flow < 100,000 ML/day)
+           ↓
+        R1 (Turkeys Nest) - Capacity: 1,300 ML, Min: 150 ML
+           ↓
+        [Pump: R1→R2] (Max: 10.5 ML/day)
+           ↓
+        R2 (Surhs Creek) - Capacity: 1,380 ML, Min: 180 ML
+           ↓  (+ Fluvial/Pluvial inflows)
+        [Pump: R2→Site] (Max: 10.0 ML/day)
+           ↓
+        DEMAND SITE (9.8 ML/day baseline)
+        ```
+
+        **Key Constraints:**
+        - River pump only operates within specific flow window
+        - R1 must stay above 150 ML (dead storage)
+        - R2 must stay above 180 ML (dead storage)
+        - Final delivery pump limited to 10.0 ML/day
+        """)
+
     with st.expander("ℹ️ About Flow Scenarios"):
         st.markdown("""
         ### Flow Scenario System
@@ -724,21 +818,13 @@ else:
         **EXTREME RAIN insertion:**
         - Replaces specified hydrological year with wettest year from top 10%
         - Tests reservoir capacity under flood conditions
-
-        **Usage:**
-        1. Base simulation uses TYPICAL scenario
-        2. Add drought/rain years to test extreme conditions
-        3. Multiple years can be inserted (comma-separated)
-        4. Each insertion replaces one complete hydrological year
         """)
 
 with st.expander("💡 Tips"):
     st.markdown("""
-    - **Baseline test:** Run with TYPICAL scenario to establish normal performance
-    - **Drought stress test:** Insert drought years to test water security
-    - **Flood stress test:** Insert rain years to test overflow/capacity
-    - **Combined scenarios:** Test multiple extreme years (e.g., "2030, 2040, 2050")
-    - **Hydrological years:** Remember Nov-Oct span, not Jan-Dec
-    - **Minimum capacity:** Dead storage protects pump intake and emergency reserves
-    - **Compare scenarios:** Run multiple times with different extreme years to compare
+    - **Clear naming:** River→R1→R2→Site represents the complete water path
+    - **Test pump constraints:** Increase demand above 10 ML/day to see pump R2→Site limitation
+    - **Watch R1→R2 diagnostics:** "Days R1→R2=0" shows when Turkeys Nest is too empty to supply
+    - **Drought scenarios:** Insert drought years to see extended periods of R1 depletion
+    - **Starting conditions:** Try lower initial levels (e.g., 50%) to test system resilience
     """)
