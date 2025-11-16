@@ -1,10 +1,51 @@
 {
-  "model": "ACCESS-CM2",
-  "experiment": "ssp370",
+  "model": "access_cm2",
+  "experiment": "SSP3-70",
   "variant": "r1i1p1f1",
   "grid": "gn",
-  "table_id": "day",
-  "calendar": "",
+  "table_id": "daily",
+  "calendar": "proleptic_gregorian",
+  "created": "2025-11-07T23:26:44.528253Z",
+  "scenario": "SSP3-70",
+  "land_sea_masking": {
+    "applied": true,
+    "method": "IPCC AR6 standard",
+    "threshold": "50% land",
+    "description": "Regional statistics computed over land grid cells only (>50% land fraction)",
+    "source": "sftlf (percentage_of_the_grid_cell_occupied_by_land)"
+  },
+  "source": {
+    "method": "CDS API via cdsapi (parallel downloads with land masking)",
+    "dataset": "projections-cmip6",
+    "downloaded": "2025-11-07T23:26:44.528265Z",
+    "cds_request": {
+      "model": "access_cm2",
+      "experiment": "ssp3_7_0",
+      "temporal_resolution": "daily",
+      "variables": [
+        "tas",
+        "tasmax",
+        "tasmin",
+        "pr",
+        "sfcWind",
+        "huss",
+        "psl",
+        "sftlf"
+      ],
+      "year_range": [
+        2015,
+        2100
+      ]
+    },
+    "netcdf_files": [
+      "access_cm2_SSP3-70_pr_2015-2100_daily_bbox_-10_110_-45_155.nc",
+      "access_cm2_SSP3-70_sfcWind_2015-2100_daily_bbox_-10_110_-45_155.nc",
+      "access_cm2_SSP3-70_tas_2015-2100_daily_bbox_-10_110_-45_155.nc",
+      "access_cm2_SSP3-70_tasmax_2015-2100_daily_bbox_-10_110_-45_155.nc",
+      "access_cm2_SSP3-70_tasmin_2015-2100_daily_bbox_-10_110_-45_155.nc"
+    ],
+    "netcdf_directory": "netcdf/"
+  },
   "lat_coord": "lat",
   "lon_coord": "lon",
   "ravenswood_target": {
@@ -27,318 +68,1354 @@
       ]
     }
   },
-  "created": "2025-10-03T06:43:57Z",
-  "scenario": "SSP3-70",
+  "geographical_area": {
+    "north": -10,
+    "west": 110,
+    "south": -45,
+    "east": 155
+  },
+  "grid_info": {
+    "fingerprint": "0111a5a510a09539aa2ca8473f6b4824",
+    "signature": {
+      "shape": [
+        28,
+        24
+      ],
+      "lat_first": -44.375,
+      "lat_last": -10.625,
+      "lon_first": 111.5625,
+      "lon_last": 154.6875,
+      "lat_spacing_mean": 1.25,
+      "lon_spacing_mean": 1.875
+    },
+    "grid_shape": [
+      28,
+      24
+    ],
+    "lat_values": [
+      -44.375,
+      -43.125,
+      -41.875,
+      -40.625,
+      -39.375,
+      -38.125,
+      -36.875,
+      -35.625,
+      -34.375,
+      -33.125,
+      -31.875,
+      -30.625,
+      -29.375,
+      -28.125,
+      -26.875,
+      -25.625,
+      -24.375,
+      -23.125,
+      -21.875,
+      -20.625,
+      -19.375,
+      -18.125,
+      -16.875,
+      -15.625,
+      -14.375,
+      -13.125,
+      -11.875,
+      -10.625
+    ],
+    "lon_values": [
+      111.5625,
+      113.4375,
+      115.3125,
+      117.1875,
+      119.0625,
+      120.9375,
+      122.8125,
+      124.6875,
+      126.5625,
+      128.4375,
+      130.3125,
+      132.1875,
+      134.0625,
+      135.9375,
+      137.8125,
+      139.6875,
+      141.5625,
+      143.4375,
+      145.3125,
+      147.1875,
+      149.0625,
+      150.9375,
+      152.8125,
+      154.6875
+    ],
+    "lat_coord_name": "lat",
+    "lon_coord_name": "lon",
+    "ravenswood": {
+      "target": {
+        "lat": -20.115,
+        "lon": 146.9
+      },
+      "grid_indices": [
+        19,
+        19
+      ],
+      "cell_centre": {
+        "lat": -20.625,
+        "lon": 147.1875
+      },
+      "cell_bounds": {
+        "lat": [
+          -21.25,
+          -20.0
+        ],
+        "lon": [
+          146.25,
+          148.125
+        ]
+      },
+      "offset_from_target": {
+        "lat": -0.5100000000000016,
+        "lon": 0.2874999999999943
+      },
+      "cell_area_sq_deg": 2.34375
+    },
+    "land_sea_mask": {
+      "applied": true,
+      "threshold_percent": 50.0,
+      "method": "IPCC AR6 standard",
+      "total_cells": 672,
+      "land_cells": 296,
+      "ocean_cells": 376,
+      "land_percentage": 44.047619047619044,
+      "land_cell_indices": [
+        [
+          1,
+          19
+        ],
+        [
+          2,
+          19
+        ],
+        [
+          5,
+          17
+        ],
+        [
+          5,
+          19
+        ],
+        [
+          6,
+          16
+        ],
+        [
+          6,
+          17
+        ],
+        [
+          6,
+          18
+        ],
+        [
+          6,
+          19
+        ],
+        [
+          6,
+          20
+        ],
+        [
+          7,
+          15
+        ],
+        [
+          7,
+          16
+        ],
+        [
+          7,
+          17
+        ],
+        [
+          7,
+          18
+        ],
+        [
+          7,
+          19
+        ],
+        [
+          7,
+          20
+        ],
+        [
+          8,
+          3
+        ],
+        [
+          8,
+          4
+        ],
+        [
+          8,
+          13
+        ],
+        [
+          8,
+          14
+        ],
+        [
+          8,
+          15
+        ],
+        [
+          8,
+          16
+        ],
+        [
+          8,
+          17
+        ],
+        [
+          8,
+          18
+        ],
+        [
+          8,
+          19
+        ],
+        [
+          8,
+          20
+        ],
+        [
+          8,
+          21
+        ],
+        [
+          9,
+          3
+        ],
+        [
+          9,
+          4
+        ],
+        [
+          9,
+          5
+        ],
+        [
+          9,
+          6
+        ],
+        [
+          9,
+          13
+        ],
+        [
+          9,
+          14
+        ],
+        [
+          9,
+          15
+        ],
+        [
+          9,
+          16
+        ],
+        [
+          9,
+          17
+        ],
+        [
+          9,
+          18
+        ],
+        [
+          9,
+          19
+        ],
+        [
+          9,
+          20
+        ],
+        [
+          9,
+          21
+        ],
+        [
+          10,
+          3
+        ],
+        [
+          10,
+          4
+        ],
+        [
+          10,
+          5
+        ],
+        [
+          10,
+          6
+        ],
+        [
+          10,
+          7
+        ],
+        [
+          10,
+          8
+        ],
+        [
+          10,
+          9
+        ],
+        [
+          10,
+          10
+        ],
+        [
+          10,
+          11
+        ],
+        [
+          10,
+          12
+        ],
+        [
+          10,
+          13
+        ],
+        [
+          10,
+          14
+        ],
+        [
+          10,
+          15
+        ],
+        [
+          10,
+          16
+        ],
+        [
+          10,
+          17
+        ],
+        [
+          10,
+          18
+        ],
+        [
+          10,
+          19
+        ],
+        [
+          10,
+          20
+        ],
+        [
+          10,
+          21
+        ],
+        [
+          11,
+          2
+        ],
+        [
+          11,
+          3
+        ],
+        [
+          11,
+          4
+        ],
+        [
+          11,
+          5
+        ],
+        [
+          11,
+          6
+        ],
+        [
+          11,
+          7
+        ],
+        [
+          11,
+          8
+        ],
+        [
+          11,
+          9
+        ],
+        [
+          11,
+          10
+        ],
+        [
+          11,
+          11
+        ],
+        [
+          11,
+          12
+        ],
+        [
+          11,
+          13
+        ],
+        [
+          11,
+          14
+        ],
+        [
+          11,
+          15
+        ],
+        [
+          11,
+          16
+        ],
+        [
+          11,
+          17
+        ],
+        [
+          11,
+          18
+        ],
+        [
+          11,
+          19
+        ],
+        [
+          11,
+          20
+        ],
+        [
+          11,
+          21
+        ],
+        [
+          11,
+          22
+        ],
+        [
+          12,
+          2
+        ],
+        [
+          12,
+          3
+        ],
+        [
+          12,
+          4
+        ],
+        [
+          12,
+          5
+        ],
+        [
+          12,
+          6
+        ],
+        [
+          12,
+          7
+        ],
+        [
+          12,
+          8
+        ],
+        [
+          12,
+          9
+        ],
+        [
+          12,
+          10
+        ],
+        [
+          12,
+          11
+        ],
+        [
+          12,
+          12
+        ],
+        [
+          12,
+          13
+        ],
+        [
+          12,
+          14
+        ],
+        [
+          12,
+          15
+        ],
+        [
+          12,
+          16
+        ],
+        [
+          12,
+          17
+        ],
+        [
+          12,
+          18
+        ],
+        [
+          12,
+          19
+        ],
+        [
+          12,
+          20
+        ],
+        [
+          12,
+          21
+        ],
+        [
+          12,
+          22
+        ],
+        [
+          13,
+          2
+        ],
+        [
+          13,
+          3
+        ],
+        [
+          13,
+          4
+        ],
+        [
+          13,
+          5
+        ],
+        [
+          13,
+          6
+        ],
+        [
+          13,
+          7
+        ],
+        [
+          13,
+          8
+        ],
+        [
+          13,
+          9
+        ],
+        [
+          13,
+          10
+        ],
+        [
+          13,
+          11
+        ],
+        [
+          13,
+          12
+        ],
+        [
+          13,
+          13
+        ],
+        [
+          13,
+          14
+        ],
+        [
+          13,
+          15
+        ],
+        [
+          13,
+          16
+        ],
+        [
+          13,
+          17
+        ],
+        [
+          13,
+          18
+        ],
+        [
+          13,
+          19
+        ],
+        [
+          13,
+          20
+        ],
+        [
+          13,
+          21
+        ],
+        [
+          13,
+          22
+        ],
+        [
+          14,
+          2
+        ],
+        [
+          14,
+          3
+        ],
+        [
+          14,
+          4
+        ],
+        [
+          14,
+          5
+        ],
+        [
+          14,
+          6
+        ],
+        [
+          14,
+          7
+        ],
+        [
+          14,
+          8
+        ],
+        [
+          14,
+          9
+        ],
+        [
+          14,
+          10
+        ],
+        [
+          14,
+          11
+        ],
+        [
+          14,
+          12
+        ],
+        [
+          14,
+          13
+        ],
+        [
+          14,
+          14
+        ],
+        [
+          14,
+          15
+        ],
+        [
+          14,
+          16
+        ],
+        [
+          14,
+          17
+        ],
+        [
+          14,
+          18
+        ],
+        [
+          14,
+          19
+        ],
+        [
+          14,
+          20
+        ],
+        [
+          14,
+          21
+        ],
+        [
+          14,
+          22
+        ],
+        [
+          15,
+          2
+        ],
+        [
+          15,
+          3
+        ],
+        [
+          15,
+          4
+        ],
+        [
+          15,
+          5
+        ],
+        [
+          15,
+          6
+        ],
+        [
+          15,
+          7
+        ],
+        [
+          15,
+          8
+        ],
+        [
+          15,
+          9
+        ],
+        [
+          15,
+          10
+        ],
+        [
+          15,
+          11
+        ],
+        [
+          15,
+          12
+        ],
+        [
+          15,
+          13
+        ],
+        [
+          15,
+          14
+        ],
+        [
+          15,
+          15
+        ],
+        [
+          15,
+          16
+        ],
+        [
+          15,
+          17
+        ],
+        [
+          15,
+          18
+        ],
+        [
+          15,
+          19
+        ],
+        [
+          15,
+          20
+        ],
+        [
+          15,
+          21
+        ],
+        [
+          15,
+          22
+        ],
+        [
+          16,
+          2
+        ],
+        [
+          16,
+          3
+        ],
+        [
+          16,
+          4
+        ],
+        [
+          16,
+          5
+        ],
+        [
+          16,
+          6
+        ],
+        [
+          16,
+          7
+        ],
+        [
+          16,
+          8
+        ],
+        [
+          16,
+          9
+        ],
+        [
+          16,
+          10
+        ],
+        [
+          16,
+          11
+        ],
+        [
+          16,
+          12
+        ],
+        [
+          16,
+          13
+        ],
+        [
+          16,
+          14
+        ],
+        [
+          16,
+          15
+        ],
+        [
+          16,
+          16
+        ],
+        [
+          16,
+          17
+        ],
+        [
+          16,
+          18
+        ],
+        [
+          16,
+          19
+        ],
+        [
+          16,
+          20
+        ],
+        [
+          16,
+          21
+        ],
+        [
+          17,
+          2
+        ],
+        [
+          17,
+          3
+        ],
+        [
+          17,
+          4
+        ],
+        [
+          17,
+          5
+        ],
+        [
+          17,
+          6
+        ],
+        [
+          17,
+          7
+        ],
+        [
+          17,
+          8
+        ],
+        [
+          17,
+          9
+        ],
+        [
+          17,
+          10
+        ],
+        [
+          17,
+          11
+        ],
+        [
+          17,
+          12
+        ],
+        [
+          17,
+          13
+        ],
+        [
+          17,
+          14
+        ],
+        [
+          17,
+          15
+        ],
+        [
+          17,
+          16
+        ],
+        [
+          17,
+          17
+        ],
+        [
+          17,
+          18
+        ],
+        [
+          17,
+          19
+        ],
+        [
+          17,
+          20
+        ],
+        [
+          17,
+          21
+        ],
+        [
+          18,
+          2
+        ],
+        [
+          18,
+          3
+        ],
+        [
+          18,
+          4
+        ],
+        [
+          18,
+          5
+        ],
+        [
+          18,
+          6
+        ],
+        [
+          18,
+          7
+        ],
+        [
+          18,
+          8
+        ],
+        [
+          18,
+          9
+        ],
+        [
+          18,
+          10
+        ],
+        [
+          18,
+          11
+        ],
+        [
+          18,
+          12
+        ],
+        [
+          18,
+          13
+        ],
+        [
+          18,
+          14
+        ],
+        [
+          18,
+          15
+        ],
+        [
+          18,
+          16
+        ],
+        [
+          18,
+          17
+        ],
+        [
+          18,
+          18
+        ],
+        [
+          18,
+          19
+        ],
+        [
+          18,
+          20
+        ],
+        [
+          19,
+          3
+        ],
+        [
+          19,
+          4
+        ],
+        [
+          19,
+          5
+        ],
+        [
+          19,
+          6
+        ],
+        [
+          19,
+          7
+        ],
+        [
+          19,
+          8
+        ],
+        [
+          19,
+          9
+        ],
+        [
+          19,
+          10
+        ],
+        [
+          19,
+          11
+        ],
+        [
+          19,
+          12
+        ],
+        [
+          19,
+          13
+        ],
+        [
+          19,
+          14
+        ],
+        [
+          19,
+          15
+        ],
+        [
+          19,
+          16
+        ],
+        [
+          19,
+          17
+        ],
+        [
+          19,
+          18
+        ],
+        [
+          19,
+          19
+        ],
+        [
+          20,
+          6
+        ],
+        [
+          20,
+          7
+        ],
+        [
+          20,
+          8
+        ],
+        [
+          20,
+          9
+        ],
+        [
+          20,
+          10
+        ],
+        [
+          20,
+          11
+        ],
+        [
+          20,
+          12
+        ],
+        [
+          20,
+          13
+        ],
+        [
+          20,
+          14
+        ],
+        [
+          20,
+          15
+        ],
+        [
+          20,
+          16
+        ],
+        [
+          20,
+          17
+        ],
+        [
+          20,
+          18
+        ],
+        [
+          21,
+          6
+        ],
+        [
+          21,
+          7
+        ],
+        [
+          21,
+          8
+        ],
+        [
+          21,
+          9
+        ],
+        [
+          21,
+          10
+        ],
+        [
+          21,
+          11
+        ],
+        [
+          21,
+          12
+        ],
+        [
+          21,
+          13
+        ],
+        [
+          21,
+          14
+        ],
+        [
+          21,
+          15
+        ],
+        [
+          21,
+          16
+        ],
+        [
+          21,
+          17
+        ],
+        [
+          21,
+          18
+        ],
+        [
+          22,
+          6
+        ],
+        [
+          22,
+          7
+        ],
+        [
+          22,
+          8
+        ],
+        [
+          22,
+          9
+        ],
+        [
+          22,
+          10
+        ],
+        [
+          22,
+          11
+        ],
+        [
+          22,
+          12
+        ],
+        [
+          22,
+          13
+        ],
+        [
+          22,
+          14
+        ],
+        [
+          22,
+          16
+        ],
+        [
+          22,
+          17
+        ],
+        [
+          22,
+          18
+        ],
+        [
+          23,
+          7
+        ],
+        [
+          23,
+          8
+        ],
+        [
+          23,
+          9
+        ],
+        [
+          23,
+          10
+        ],
+        [
+          23,
+          11
+        ],
+        [
+          23,
+          12
+        ],
+        [
+          23,
+          13
+        ],
+        [
+          23,
+          16
+        ],
+        [
+          23,
+          17
+        ],
+        [
+          24,
+          8
+        ],
+        [
+          24,
+          10
+        ],
+        [
+          24,
+          11
+        ],
+        [
+          24,
+          12
+        ],
+        [
+          24,
+          13
+        ],
+        [
+          24,
+          17
+        ],
+        [
+          25,
+          11
+        ],
+        [
+          25,
+          12
+        ],
+        [
+          25,
+          13
+        ],
+        [
+          26,
+          11
+        ]
+      ],
+      "description": "Grid cells with >50% land fraction included in regional statistics"
+    }
+  },
   "time_range": [
     "2015-01-01",
-    "2099-12-31"
+    "2100-12-31"
   ],
+  "temporal_resolution": "daily",
+  "date": {
+    "column": "time",
+    "format": "YYYY-MM-DD",
+    "freq": "D"
+  },
   "variables": {
     "tas": "degC",
     "tasmax": "degC",
-    "pr": "mm/day totals",
-    "wind": "m/s",
-    "huss": "g/kg",
-    "psl": "hPa"
-  },
-  "file_counts": {
-    "tas": 3,
-    "tasmax": 3,
-    "pr": 3,
-    "sfcWind": 3,
-    "huss": 2,
-    "psl": 2
-  },
-  "files": [
-    {
-      "var": "tas",
-      "path": "/Users/ken/PycharmProjects/climateData/rawDataFiles/SSP3-70/tas_day_ACCESS-CM2_ssp370_r1i1p1f1_gn_20150101-20491231.nc",
-      "bytes": 966996454
-    },
-    {
-      "var": "tas",
-      "path": "/Users/ken/PycharmProjects/climateData/rawDataFiles/SSP3-70/tas_day_ACCESS-CM2_ssp370_r1i1p1f1_gn_20500101-20990706.nc",
-      "bytes": 1362266594
-    },
-    {
-      "var": "tas",
-      "path": "/Users/ken/PycharmProjects/climateData/rawDataFiles/SSP3-70/tas_day_ACCESS-CM2_ssp370_r1i1p1f1_gn_20990707-20991231.nc",
-      "bytes": 13588094
-    },
-    {
-      "var": "tasmax",
-      "path": "/Users/ken/PycharmProjects/climateData/rawDataFiles/SSP3-70/tasmax_day_ACCESS-CM2_ssp370_r1i1p1f1_gn_20150101-20491231.nc",
-      "bytes": 971079275
-    },
-    {
-      "var": "tasmax",
-      "path": "/Users/ken/PycharmProjects/climateData/rawDataFiles/SSP3-70/tasmax_day_ACCESS-CM2_ssp370_r1i1p1f1_gn_20500101-20990706.nc",
-      "bytes": 1366496377
-    },
-    {
-      "var": "tasmax",
-      "path": "/Users/ken/PycharmProjects/climateData/rawDataFiles/SSP3-70/tasmax_day_ACCESS-CM2_ssp370_r1i1p1f1_gn_20990707-20991231.nc",
-      "bytes": 13659018
-    },
-    {
-      "var": "pr",
-      "path": "/Users/ken/PycharmProjects/climateData/rawDataFiles/SSP3-70/pr_day_ACCESS-CM2_ssp370_r1i1p1f1_gn_20150101-20491231.nc",
-      "bytes": 1298495244
-    },
-    {
-      "var": "pr",
-      "path": "/Users/ken/PycharmProjects/climateData/rawDataFiles/SSP3-70/pr_day_ACCESS-CM2_ssp370_r1i1p1f1_gn_20500101-20990706.nc",
-      "bytes": 1831874500
-    },
-    {
-      "var": "pr",
-      "path": "/Users/ken/PycharmProjects/climateData/rawDataFiles/SSP3-70/pr_day_ACCESS-CM2_ssp370_r1i1p1f1_gn_20990707-20991231.nc",
-      "bytes": 18162787
-    },
-    {
-      "var": "sfcWind",
-      "path": "/Users/ken/PycharmProjects/climateData/rawDataFiles/SSP3-70/sfcWind_day_ACCESS-CM2_ssp370_r1i1p1f1_gn_20150101-20491231.nc",
-      "bytes": 1170140251
-    },
-    {
-      "var": "sfcWind",
-      "path": "/Users/ken/PycharmProjects/climateData/rawDataFiles/SSP3-70/sfcWind_day_ACCESS-CM2_ssp370_r1i1p1f1_gn_20500101-20990706.nc",
-      "bytes": 1642951873
-    },
-    {
-      "var": "sfcWind",
-      "path": "/Users/ken/PycharmProjects/climateData/rawDataFiles/SSP3-70/sfcWind_day_ACCESS-CM2_ssp370_r1i1p1f1_gn_20990707-20991231.nc",
-      "bytes": 16361391
-    },
-    {
-      "var": "huss",
-      "path": "/Users/ken/PycharmProjects/climateData/rawDataFiles/SSP3-70/huss_day_ACCESS-CM2_ssp370_r1i1p1f1_gn_20150101-20640705.nc",
-      "bytes": 1765576651
-    },
-    {
-      "var": "huss",
-      "path": "/Users/ken/PycharmProjects/climateData/rawDataFiles/SSP3-70/huss_day_ACCESS-CM2_ssp370_r1i1p1f1_gn_20640706-20991231.nc",
-      "bytes": 1271014795
-    },
-    {
-      "var": "psl",
-      "path": "/Users/ken/PycharmProjects/climateData/rawDataFiles/SSP3-70/psl_day_ACCESS-CM2_ssp370_r1i1p1f1_gn_20150101-20640705.nc",
-      "bytes": 1304106983
-    },
-    {
-      "var": "psl",
-      "path": "/Users/ken/PycharmProjects/climateData/rawDataFiles/SSP3-70/psl_day_ACCESS-CM2_ssp370_r1i1p1f1_gn_20640706-20991231.nc",
-      "bytes": 939698993
-    }
-  ],
-  "date": {
-    "column": "time"
+    "tasmin": "degC",
+    "pr": "day",
+    "wind": "ms"
   },
   "columns": {
     "tas": "tas_Ravenswood_degC",
     "tasmax": "tasmax_Ravenswood_degC",
+    "tasmin": "tasmin_Ravenswood_degC",
     "pr": "pr_Ravenswood_mm_day",
-    "wind": "wind_Ravenswood_ms",
-    "huss": "huss_Ravenswood_g_per_kg",
-    "psl": "psl_Ravenswood_hPa"
+    "wind": "wind_Ravenswood_ms"
   },
   "parquet": {
-    "rows": 31046,
-    "columns": 12,
-    "compression": "zstd",
+    "file": "raw_daily.parquet",
+    "rows": 31411,
+    "columns": 10,
     "index_name": "time",
     "column_order": [
-      "tas_Australia_degC",
+      "tas_Australia_land_only_degC",
       "tas_Ravenswood_degC",
-      "pr_Australia_mm_day",
-      "pr_Ravenswood_mm_day",
-      "wind_Australia_ms",
-      "wind_Ravenswood_ms",
-      "tasmax_Australia_degC",
+      "tasmax_Australia_land_only_degC",
       "tasmax_Ravenswood_degC",
-      "huss_Australia_g_per_kg",
-      "huss_Ravenswood_g_per_kg",
-      "psl_Australia_hPa",
-      "psl_Ravenswood_hPa"
-    ]
-  },
-  "data_layout": {
-    "schema_version": "1.1",
-    "index": {
-      "name": "time",
-      "kind": "date",
-      "dtype": "string-YYYY-MM-DD",
-      "freq": "D",
-      "start": "2015-01-01",
-      "end": "2099-12-31"
-    },
-    "columns": [
-      {
-        "name": "tas_Australia_degC",
-        "dtype": "float64",
-        "variable": "tas",
-        "region": "Australia",
-        "unit": "degC",
-        "non_null": 31046,
-        "nulls": 0,
-        "min": 12.717408740063465,
-        "max": 20.827381364886982
-      },
-      {
-        "name": "tas_Ravenswood_degC",
-        "dtype": "float64",
-        "variable": "tas",
-        "region": "Ravenswood",
-        "unit": "degC",
-        "non_null": 31046,
-        "nulls": 0,
-        "min": 9.347076416015625,
-        "max": 41.740631103515625
-      },
-      {
-        "name": "pr_Australia_mm_day",
-        "dtype": "float64",
-        "variable": "pr",
-        "region": "Australia",
-        "unit": "mm_day",
-        "non_null": 31046,
-        "nulls": 0,
-        "min": 2.7301693757047234,
-        "max": 3.9284071240695453
-      },
-      {
-        "name": "pr_Ravenswood_mm_day",
-        "dtype": "float64",
-        "variable": "pr",
-        "region": "Ravenswood",
-        "unit": "mm_day",
-        "non_null": 31046,
-        "nulls": 0,
-        "min": 0.0,
-        "max": 427.39144563674927
-      },
-      {
-        "name": "wind_Australia_ms",
-        "dtype": "float64",
-        "variable": "wind",
-        "region": "Australia",
-        "unit": "ms",
-        "non_null": 31046,
-        "nulls": 0,
-        "min": 5.571422189764473,
-        "max": 7.019624333885039
-      },
-      {
-        "name": "wind_Ravenswood_ms",
-        "dtype": "float64",
-        "variable": "wind",
-        "region": "Ravenswood",
-        "unit": "ms",
-        "non_null": 31046,
-        "nulls": 0,
-        "min": 0.5179672241210938,
-        "max": 9.784317016601562
-      },
-      {
-        "name": "tasmax_Australia_degC",
-        "dtype": "float64",
-        "variable": "tasmax",
-        "region": "Australia",
-        "unit": "degC",
-        "non_null": 31046,
-        "nulls": 0,
-        "min": 14.336183459797319,
-        "max": 22.606549679765493
-      },
-      {
-        "name": "tasmax_Ravenswood_degC",
-        "dtype": "float64",
-        "variable": "tasmax",
-        "region": "Ravenswood",
-        "unit": "degC",
-        "non_null": 31046,
-        "nulls": 0,
-        "min": 11.845123291015625,
-        "max": 47.095855712890625
-      },
-      {
-        "name": "huss_Australia_g_per_kg",
-        "dtype": "float64",
-        "variable": "huss",
-        "region": "Australia",
-        "unit": "g_per_kg",
-        "non_null": 31046,
-        "nulls": 0,
-        "min": 9.559071559219243,
-        "max": 13.404747879900864
-      },
-      {
-        "name": "huss_Ravenswood_g_per_kg",
-        "dtype": "float64",
-        "variable": "huss",
-        "region": "Ravenswood",
-        "unit": "g_per_kg",
-        "non_null": 31046,
-        "nulls": 0,
-        "min": 2.1798386573791504,
-        "max": 26.99191665649414
-      },
-      {
-        "name": "psl_Australia_hPa",
-        "dtype": "float64",
-        "variable": "psl",
-        "region": "Australia",
-        "unit": "hPa",
-        "non_null": 31046,
-        "nulls": 0,
-        "min": 1011.5106257056079,
-        "max": 1012.6431021240224
-      },
-      {
-        "name": "psl_Ravenswood_hPa",
-        "dtype": "float64",
-        "variable": "psl",
-        "region": "Ravenswood",
-        "unit": "hPa",
-        "non_null": 31046,
-        "nulls": 0,
-        "min": 993.3231201171875,
-        "max": 1028.7113037109375
-      }
-    ],
-    "column_order": [
-      "tas_Australia_degC",
-      "tas_Ravenswood_degC",
-      "pr_Australia_mm_day",
+      "tasmin_Australia_land_only_degC",
+      "tasmin_Ravenswood_degC",
+      "pr_Australia_land_only_mm_day",
       "pr_Ravenswood_mm_day",
-      "wind_Australia_ms",
-      "wind_Ravenswood_ms",
-      "tasmax_Australia_degC",
-      "tasmax_Ravenswood_degC",
-      "huss_Australia_g_per_kg",
-      "huss_Ravenswood_g_per_kg",
-      "psl_Australia_hPa",
-      "psl_Ravenswood_hPa"
-    ],
-    "rows": 31046,
-    "variables_present": [
-      "huss",
-      "pr",
-      "psl",
-      "tas",
-      "tasmax",
-      "wind"
-    ],
-    "regions_present": [
-      "Australia",
-      "Ravenswood"
-    ],
-    "units_present": [
-      "degC",
-      "g_per_kg",
-      "hPa",
-      "mm_day",
-      "ms"
+      "wind_Australia_land_only_ms",
+      "wind_Ravenswood_ms"
     ]
   }
 }
