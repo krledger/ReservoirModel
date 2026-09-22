@@ -1,6 +1,7 @@
 """
-Tab 2: Actual Historical Data
-Handles display of actual observed reservoir data
+Tab 2: Actuals
+Site actuals from Weekly SWB.xlsx and the entered readings, from the first
+reading onwards.
 """
 
 import streamlit as st
@@ -8,25 +9,35 @@ import pandas as pd
 import numpy as np
 from pathlib import Path
 from reservoir_operations import calculate_statistics
-from reservoir_plotting import create_plots
+import ReservoirPhysics as rp
+from reservoir_plotting import create_plots, split_subplots, PLOTLY_CONFIG
 
 
 def render_historical_tab(system, reservoirs, pumps, historical_results, hist_min_year, hist_max_year):
     """Render the historical data tab"""
     
-    st.header("Actual Historical Data")
+    st.header("Actuals")
+    if historical_results is None:
+        st.warning("No site actuals available. Place Weekly SWB.xlsx in the project folder.")
+        return
 
-    # Get date range from sidebar
-    start_year_hist = st.session_state.get('hist_start_year', max(hist_min_year, 2020))
-    end_year_hist = st.session_state.get('hist_end_year', hist_max_year)
+    # Shared date range from the sidebar, starting no earlier than the first actual reading
+    levels = historical_results[['r1_level_ML', 'r2_level_ML']].dropna()
+    first, last = levels.index.min(), levels.index.max()
+    start_date = max(pd.Timestamp(f"{st.session_state.get('start_year', first.year)}-01-01"), first)
+    end_date = min(pd.Timestamp(f"{st.session_state.get('end_year', last.year)}-12-31"), last)
+    if start_date > end_date:
+        st.info(f"Actuals run from {first:%d/%m/%Y} to {last:%d/%m/%Y}; the selected years are outside that.")
+        return
+    start_year_hist, end_year_hist = start_date.year, end_date.year
+    st.caption(f"Showing {start_date:%d/%m/%Y} to {end_date:%d/%m/%Y}.  Dam volumes from {first:%d/%m/%Y}; pump "
+               f"meters from August 2024.  Weeks after the workbook come from the entered readings.")
 
     if historical_results is not None:
         try:
             results = historical_results.copy()
 
             # Filter to date range
-            start_date = f"{start_year_hist}-01-01"
-            end_date = f"{end_year_hist}-12-31"
             mask = (results.index >= start_date) & (results.index <= end_date)
             results = results.loc[mask]
 
@@ -36,14 +47,18 @@ def render_historical_tab(system, reservoirs, pumps, historical_results, hist_mi
                 # Load river flow data
                 results = load_wmip_river_flow(results)
                 
-                # Load AGCD climate data
+                # Load AGCD climate data, then use the site rain gauge where the workbook has it
                 results, agcd_loaded = load_agcd_climate_data(results, reservoirs)
+                if 'site_rain_mm_day' in results.columns:
+                    base = results['precipitation_mm_day'] if 'precipitation_mm_day' in results.columns else None
+                    results['precipitation_mm_day'] = (results['site_rain_mm_day'] if base is None
+                                                       else results['site_rain_mm_day'].combine_first(base))
                 
                 # Prepare results for plotting
                 results = prepare_historical_results(results)
                 
                 # Create scenario description
-                scenario_desc = "HISTORICAL DATA"
+                scenario_desc = "SITE ACTUALS (WEEKLY SWB)"
                 if agcd_loaded:
                     scenario_desc += " + AGCD"
                 
@@ -64,15 +79,17 @@ def render_historical_tab(system, reservoirs, pumps, historical_results, hist_mi
 
                 fig = create_plots(results, scenario_desc, start_year_hist, end_year_hist, r1_min, r2_min,
                                    default_river_pump_low, default_river_pump_high, r1_turkeys, r2_surhs)
-                st.plotly_chart(fig, use_container_width=True)
+                st.markdown(f"**Reservoir System Analysis - {scenario_desc} ({start_year_hist}-{end_year_hist})**")
+                for i, f in enumerate(split_subplots(fig)):
+                    st.plotly_chart(f, config=PLOTLY_CONFIG, key=f"hist_chart_{i}")
 
                 # Download results
                 with st.expander("💾 Download Results"):
                     csv = results.to_csv()
                     st.download_button(
-                        label="Download historical data (CSV)",
+                        label="Download site actuals (CSV)",
                         data=csv,
-                        file_name=f"historical_data_{start_year_hist}_{end_year_hist}.csv",
+                        file_name=f"site_actuals_{start_year_hist}_{end_year_hist}.csv",
                         mime="text/csv",
                         key="download_hist"
                     )
@@ -81,18 +98,18 @@ def render_historical_tab(system, reservoirs, pumps, historical_results, hist_mi
             st.error(f"Error displaying historical data: {e}")
             st.exception(e)
     else:
-        st.warning("No historical data available. Please load historical_data_consolidated.csv")
+        st.warning("No site actuals available. Place Weekly SWB.xlsx in the project folder.")
 
 
 def load_wmip_river_flow(results):
     """Load river flow data from WMIP and join to results"""
     with st.spinner('Loading river flow data from WMIP...'):
         try:
-            flow_base = Path('.') / 'wmipData'
-            typical_file = flow_base / 'flows_bootstrap_typical.parquet'
+            from ModelInputs import load_flows, FLOW_ACTUAL, SELLHEIM_FILE
 
-            if typical_file.exists():
-                flow_data = pd.read_parquet(typical_file)
+            if SELLHEIM_FILE.exists():
+                # Actual Sellheim record (the bootstrap file is synthetic after May 2024)
+                flow_data = load_flows(FLOW_ACTUAL)
 
                 if 'Date' in flow_data.columns:
                     flow_data['Date'] = pd.to_datetime(flow_data['Date'])
@@ -126,62 +143,25 @@ def load_wmip_river_flow(results):
 
 
 def load_agcd_climate_data(results, reservoirs):
-    """Load AGCD climate data and calculate derived variables"""
+    """Join observed climate (AGCD, with humidity and wind filled by ModelInputs) to the results"""
     agcd_loaded = False
-    
-    with st.spinner('Loading AGCD climate data...'):
-        try:
-            agcd_dir = Path('.') / 'metricsDataFiles' / 'AGCD'
-            agcd_file = agcd_dir / 'raw_daily.parquet'
-
-            if agcd_file.exists():
-                agcd_data = pd.read_parquet(agcd_file)
-                agcd_data.index = pd.to_datetime(agcd_data.index)
-
-                # Filter to match results date range
-                agcd_mask = (agcd_data.index >= results.index.min()) & (agcd_data.index <= results.index.max())
-                agcd_filtered = agcd_data.loc[agcd_mask]
-
-                # Map AGCD column names
-                climate_data = {}
-
-                # Temperature
-                temp_col = find_climate_column(agcd_filtered.columns, 'tas', 'degC', 'Ravenswood')
-                if temp_col:
-                    climate_data['temperature_degC'] = agcd_filtered[temp_col]
-
-                # Humidity
-                huss_col = find_climate_column(agcd_filtered.columns, 'huss', 'g_per_kg', 'Ravenswood')
-                if huss_col:
-                    climate_data['specific_humidity_g_kg'] = agcd_filtered[huss_col]
-
-                # Precipitation
-                pr_col = find_climate_column(agcd_filtered.columns, 'pr', 'mm', 'Ravenswood')
-                if pr_col:
-                    climate_data['precipitation_mm_day'] = agcd_filtered[pr_col]
-
-                # Wind speed
-                wind_col = find_climate_column(agcd_filtered.columns, 'wind', None, 'Ravenswood')
-                if wind_col:
-                    climate_data['wind_speed_ms'] = agcd_filtered[wind_col]
-
-                if climate_data:
-                    # Create dataframe and join
-                    climate_df = pd.DataFrame(climate_data)
-                    results = results.join(climate_df, how='left')
-
-                    # Calculate derived variables
-                    if 'temperature_degC' in results.columns and 'specific_humidity_g_kg' in results.columns:
-                        results = calculate_climate_derived_variables(results, reservoirs)
-
-                    agcd_loaded = True
-                else:
-                    pass  # No climate columns found
-            else:
-                pass  # AGCD file not found
-
-        except Exception as e:
-            pass  # Error loading AGCD data
+    try:
+        from ModelInputs import load_climate, last_actual_climate_day
+        c = load_climate()
+        c = c[(c.index >= results.index.min()) & (c.index <= min(results.index.max(), last_actual_climate_day()))]
+        if len(c):
+            climate_df = pd.DataFrame({
+                'temperature_degC': c['tas_Ravenswood_degC'],
+                'temperature_range_degC': c['dtr_Ravenswood_degC'],
+                'specific_humidity_g_kg': c['huss_Ravenswood_g_per_kg'],
+                'precipitation_mm_day': c['pr_Ravenswood_mm_day'],
+                'wind_speed_ms': c['wind_Ravenswood_ms'],
+            })
+            results = results.join(climate_df, how='left')
+            results = calculate_climate_derived_variables(results, reservoirs)
+            agcd_loaded = True
+    except Exception as e:
+        st.caption(f"AGCD climate not loaded: {e}")
     return results, agcd_loaded
 
 
@@ -203,31 +183,6 @@ def find_climate_column(columns, var_name, unit, location):
     return None
 
 
-def get_surface_area_safe(reservoir_config):
-    """Safely get surface area from config with different possible key names"""
-    # First, try to find any key that contains 'surface_area'
-    for key in reservoir_config.keys():
-        if 'surface_area' in key.lower():
-            return reservoir_config[key]
-    
-    # Fallback to checking specific variations
-    possible_keys = [
-        'surface_area_m2',
-        'surface_area_m²',
-        'surface_area',
-        'area_m2',
-        'area'
-    ]
-    
-    for key in possible_keys:
-        if key in reservoir_config:
-            return reservoir_config[key]
-    
-    # If no key found, raise informative error
-    available_keys = list(reservoir_config.keys())
-    raise KeyError(f"Could not find surface area key. Available keys: {available_keys}")
-
-
 def calculate_climate_derived_variables(results, reservoirs):
     """Calculate relative humidity, evaporation and reservoir losses"""
     temp = results['temperature_degC'].values
@@ -243,20 +198,17 @@ def calculate_climate_derived_variables(results, reservoirs):
         rh = (e / es) * 100
         results['relative_humidity_pct'] = np.clip(rh, 0, 100)
 
-        # Evaporation
-        es_evap = 0.6108 * np.exp((17.27 * temp) / (temp + 237.3))
-        ea = (huss / 1000) * 101.325 / 0.622
-        vpd = es_evap - ea
-        vpd = np.maximum(vpd, 0)
-        wind_speed = results.get('wind_speed_ms', pd.Series([2.0] * len(temp))).fillna(2.0).values
-        evaporation_mm = 0.5 * (temp / 20) * vpd * (1 + 0.5 * wind_speed / 2)
-        results['evaporation_mm_day'] = np.maximum(evaporation_mm, 0)
+        # FAO-56 open water evaporation
+        wind_speed = results['wind_speed_ms'].fillna(2.0).values if 'wind_speed_ms' in results else None
+        dtr = results['temperature_range_degC'].values if 'temperature_range_degC' in results else None
+        evaporation_mm = rp.open_water_evaporation_mm(temp, dtr, huss, wind_speed, results.index.dayofyear.values)
+        results['evaporation_mm_day'] = np.where(valid_mask, evaporation_mm, np.nan)
 
-        # Reservoir evaporation losses - use safe getter
-        r1_area = get_surface_area_safe(reservoirs[0])
-        r2_area = get_surface_area_safe(reservoirs[1])
-        results['r1_evap_ML_day'] = (results['evaporation_mm_day'] / 1000) * r1_area / 1000
-        results['r2_evap_ML_day'] = (results['evaporation_mm_day'] / 1000) * r2_area / 1000
+        # Evaporation on the surface area at the measured volume
+        results['r1_evap_ML_day'] = results['evaporation_mm_day'] * rp.surface_area_m2(
+            reservoirs[0], results['r1_level_ML'].ffill().fillna(0).values) / 1e6
+        results['r2_evap_ML_day'] = results['evaporation_mm_day'] * rp.surface_area_m2(
+            reservoirs[1], results['r2_level_ML'].ffill().fillna(0).values) / 1e6
     
     return results
 
@@ -296,9 +248,9 @@ def display_historical_statistics(stats, num_days):
                 f"{stats['days_pump_r1_r2_zero'] / num_days * 100:.1f}% of time")
     col2.metric("Days River→TND Active", f"{stats['days_pump_river_r1_active']}",
                 f"{stats['days_pump_river_r1_active'] / num_days * 100:.1f}% of time")
-    col3.metric("Avg River→TND", f"{stats['avg_pump_river_r1']:.2f} ML/day")
-    col4.metric("Avg TND→SCD", f"{stats['avg_pump_r1_r2']:.2f} ML/day")
-    col5.metric("Avg SCD→Site", f"{stats['avg_pump_r2_site']:.2f} ML/day")
+    col3.metric("Avg River→TND", f"{stats['avg_pump_river_r1']:.1f} ML/day")
+    col4.metric("Avg TND→SCD", f"{stats['avg_pump_r1_r2']:.1f} ML/day")
+    col5.metric("Avg SCD→Site", f"{stats['avg_pump_r2_site']:.1f} ML/day")
 
     # Pump utilization (annual)
     if 'utilization_river_r1_pct' in stats:
@@ -342,14 +294,3 @@ def show_historical_data_info():
 
         **Note:** Tab 2 shows only actual historical data.  For model predictions, use Tab 1.
         """)
-
-
-def render_historical_sidebar(hist_min_year, hist_max_year):
-    """Render sidebar controls for historical tab"""
-    st.sidebar.header("Historical Data Controls")
-
-    with st.sidebar.expander("📅 Date Range", expanded=True):
-        start_year_hist = st.number_input("Start Year", min_value=hist_min_year, max_value=hist_max_year,
-                                          value=max(hist_min_year, 2020), key="hist_start_year")
-        end_year_hist = st.number_input("End Year", min_value=hist_min_year, max_value=hist_max_year,
-                                        value=hist_max_year, key="hist_end_year")

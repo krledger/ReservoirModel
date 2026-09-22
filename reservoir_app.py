@@ -10,8 +10,13 @@ from pathlib import Path
 # Import modules
 from reservoir_operations import ReservoirSystem, extract_presets_from_historical
 from reservoir_model_tab import render_model_tab, render_model_sidebar
-from reservoir_historical_tab import render_historical_tab, render_historical_sidebar
+from reservoir_historical_tab import render_historical_tab
 from reservoir_weekly_tab import render_weekly_tab, render_weekly_sidebar
+from SiteActuals import SWB_PATH, actuals_weekly
+from OpportunityTab import render_opportunity_tab
+from CurrentReadingsTab import render_current_readings_tab
+import CurrentReadings as cr
+import ModelInputs as mi
 
 
 # Set page config
@@ -28,15 +33,10 @@ def load_system():
 
 
 @st.cache_data
-def load_historical_data(hist_data_path):
-    """Load historical data from CSV"""
-    hist_file = Path(hist_data_path)
-    if not hist_file.exists():
-        return None, f"File not found: {hist_data_path}"
-
+def load_site_actuals(swb_mtime):
+    """Weekly site actuals from Weekly SWB.xlsx (read only).  The mtime argument refreshes the cache."""
     try:
-        results = pd.read_csv(hist_data_path, parse_dates=['date'], index_col='date')
-        return results, None
+        return actuals_weekly(), None
     except Exception as e:
         return None, str(e)
 
@@ -51,9 +51,9 @@ def main():
         reservoirs = system.system_config['system']['reservoirs']
         pumps = system.system_config['system']['pumps']
 
-        # Determine available year range from climate data
-        min_year = system.climate_data.index.min().year
-        max_year = system.climate_data.index.max().year
+        # Year range across all climate sources (AGCD from 1971, SSPs to 2100)
+        min_year = mi.earliest_year()
+        max_year = mi.latest_year()
 
     except Exception as e:
                 st.stop()
@@ -64,9 +64,14 @@ def main():
     if 'model_results' not in st.session_state:
         st.session_state.model_results = None
 
-    # Load historical data at startup
-    hist_data_path = "historical_data_consolidated.csv"
-    historical_results, hist_error = load_historical_data(hist_data_path)
+    # Site actuals from the weekly site water balance workbook, with later entered readings appended
+    if SWB_PATH.exists():
+        workbook_actuals, hist_error = load_site_actuals(SWB_PATH.stat().st_mtime)
+    else:
+        workbook_actuals, hist_error = None, f"{SWB_PATH.name} not found"
+    if hist_error:
+        st.sidebar.warning(f"Site actuals not loaded: {hist_error}")
+    historical_results = cr.merge_with_actuals(workbook_actuals)
 
     # Extract presets from historical data
     presets = None
@@ -75,7 +80,7 @@ def main():
         hist_max_year = historical_results.index.max().year
 
         # Show data quality info
-        with st.sidebar.expander("📊 Historical Data Quality", expanded=False):
+        with st.sidebar.expander("📊 Site Actuals (Weekly SWB)", expanded=False):
             st.write(f"**Date Range:** {historical_results.index.min().strftime('%Y-%m-%d')} to {historical_results.index.max().strftime('%Y-%m-%d')}")
             st.write(f"**Total Records:** {len(historical_results)}")
 
@@ -107,22 +112,26 @@ def main():
     st.title("🌊 Reservoir System Simulation Dashboard")
 
     # Create tabs
-    tab1, tab2, tab3 = st.tabs(["📊 Model Simulation", "📈 Actual Historical Data", "📋 Weekly Water Balance"])
+    tab1, tab2, tab3, tab4, tab5 = st.tabs(["📊 Model Simulation", "📈 Actuals",
+                                            "📋 Weekly Water Balance", "🎯 Actuals vs Potential",
+                                            "📝 Current Readings"])
 
     # Determine which tab is active
     active_tab = None
 
+    # One date range for the model and historical tabs
+    render_date_range(min_year, max_year, presets)
+
     # Tab 1: Model Simulation
     with tab1:
         active_tab = "model"
-        render_model_sidebar(pumps, reservoirs, min_year, max_year, presets)
+        render_model_sidebar(pumps, reservoirs, min_year, max_year, presets, historical_results)
         render_model_tab(system, reservoirs, pumps, min_year, max_year, presets, historical_results)
 
     # Tab 2: Historical Data
     with tab2:
         if active_tab != "model":
             active_tab = "historical"
-        render_historical_sidebar(hist_min_year, hist_max_year)
         render_historical_tab(system, reservoirs, pumps, historical_results, hist_min_year, hist_max_year)
 
     # Tab 3: Weekly Balance
@@ -132,8 +141,31 @@ def main():
         render_weekly_sidebar(historical_results)
         render_weekly_tab(historical_results, reservoirs, pumps)
 
+    # Tab 4: Site actuals against as-operated and potential model runs
+    with tab4:
+        render_opportunity_tab()
+
+    # Tab 5: Current readings and the printable water supply report
+    with tab5:
+        render_current_readings_tab(reservoirs, workbook_actuals, historical_results)
+
     # System info at bottom
     render_system_info(reservoirs, pumps)
+
+
+def render_date_range(min_year, max_year, presets):
+    """Single date range, shared by the model and historical tabs"""
+    default_start = presets['model_start_year'] if presets else 2015
+    default_end = presets['model_end_year'] if presets else 2025
+    default_start = min(max(default_start, min_year), max_year)
+    default_end = min(max(default_end, default_start), max_year)
+    with st.sidebar.expander("📅 Date Range", expanded=True):
+        st.number_input("Start Year", min_value=min_year, max_value=max_year,
+                        value=st.session_state.get('start_year', default_start), key="start_year")
+        st.number_input("End Year", min_value=min_year, max_value=max_year,
+                        value=st.session_state.get('end_year', default_end), key="end_year")
+        st.caption(f"Model inputs cover {min_year} to {max_year}.  The historical tab shows the part of "
+                   f"this range its data covers.")
 
 
 def render_system_info(reservoirs, pumps):
@@ -172,9 +204,9 @@ def render_system_info(reservoirs, pumps):
         - **Seamless transition:** Model starts where historical data ends, with actual reservoir levels
         - **Tab 1 (Model):** Run predictive simulations with different scenarios
           - Starts with presets from historical data (reservoir levels, demand)
-          - Select climate scenario: SSP1-26, SSP2-45, SSP5-85, or AGCD
+          - Select the climate scenario after the AGCD record ends: SSP1-26, SSP2-45, SSP3-70 or SSP5-85
           - Enable random variations for realistic demand/pump fluctuations
-        - **Tab 2 (Actual):** View historical observations from your Excel data
+        - **Tab 2 (Actuals):** Site actuals from Weekly SWB.xlsx and the entered readings
           - Automatically loads AGCD climate data (actual observations)
           - Automatically loads WMIP river flow data
           - Shows complete actual system behaviour
@@ -183,7 +215,7 @@ def render_system_info(reservoirs, pumps):
           - View current vs previous week comparisons
           - See days until storage depleted
         - **Compare:** Run Tab 1 with AGCD to compare model vs Tab 2 actual data
-        - **Test scenarios:** Try drought/rain years to stress-test the system
+        - **Tab 5 (Current Readings):** Enter the site weekly update and download the printable report
         - **Modular design:** Code separated into logical modules for maintainability
         """)
 

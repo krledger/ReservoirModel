@@ -1,52 +1,444 @@
 {
+  "_provenance": {
+    "updated": "2026-08-10",
+    "note": "Values are graded. MEASURED comes from site instrumentation or a primary published source and may be relied on. PROVISIONAL is derived from a small number of observations and is recorded so the model is not left with a value known to be wrong; it must be confirmed. ASSUMED is not established and no conclusion should rest on it. Do not promote a value between grades without recording the evidence here.",
+    "reservoirs": {
+      "TurkeysNest.capacity_ML": "MEASURED 1302 implied by four weekly site water balance reports (Mar to Aug 2026). Held at 1300, within 0.2 per cent.",
+      "SurhsCreek.capacity_ML": "MEASURED 1271. Four weekly reports imply 1274, 1269, 1271, 1269. Was 1380, which overstated capacity by 109 ML.",
+      "min_capacity_ML": "MEASURED as site advice. Minimum level for pumping 5 per cent of capacity: TND 65 ML, SCD 64 ML. About 5 per cent of storage is taken as unrecoverable. TND was 150 ML (assumed); confirmed 5 per cent by site, 22 Sep 2026.",
+      "surface_area": "MEASURED shape. area_curves.rating is dV/dRL from the site level to volume rating over the surveyed range (30 to 100 per cent), tapering to zero below. Independent check: area implied by metered TND inflow over level rise in 20 filling weeks is 0.82 of the rating (interquartile 0.72 to 1.05) and rises with level as the rating does. area_curves.steep_walls is a 1V:3H square basin with the same full supply area and capacity, a conservative sensitivity. The fixed surface_area key is kept for older scripts only.",
+      "SurhsCreek.fluvial": "PROVISIONAL 1.2 ML per mm on days of 40 mm or more, was 0.03 ML per mm above 12 mm. Coefficient and rain threshold fitted together against measured SCD volumes.",
+      "SurhsCreek.initial_level_ML": "Set to the SCD operating level. SCD has been held near this level after every refill since 2021.",
+      "TurkeysNest.seepage": "PROVISIONAL. Gross 2.2 ML/day at full supply, scaled by volume over capacity (Darcy: wetted area and head both fall with drawdown), none returned. Median dry-week residual 1.6 ML/day at about 72 per cent full and 2.1 near full, after FAO-56 evaporation on the rating area, weeks after meter 120 went live. About 8 to 10 mm/day, an effective hydraulic conductivity near 2e-8 m/s, consistent with an embanked storage on the Burdekin terrace. Not replaceable from the river when flow is below the extraction threshold.",
+      "SurhsCreek.seepage": "PROVISIONAL. Gross 0.9 ML/day at full supply, scaled by volume over capacity, 60 per cent returned, net about 0.3 ML/day at 84 per cent. Gross from the 4-week dry-window balance with recovery set to zero (0.75 ML/day at about 83 per cent). Returned share from the fall in net loss as recovery on meters 081, 092 and 093 rises (0.59, standard error 0.25; weekly 0.86, 0.28), consistent with site advice of 50 per cent or more. Recovery median 0.72 ML/day. Darcy bound for compacted clay 0.1 to 1.0 ML/day. Confirm with a return line meter or a two-week recovery shutdown in dry weather.",
+      "SurhsCreek.community_reserve_pct": "Legislated 20 per cent. Below it the mine stops and SCD supplies only the water treatment plant (meter 166), down to the minimum level for pumping. Editable in the sidebar for sensitivity."
+    },
+    "pumps": {
+      "BurdekinToTurkeysNest.cutoffs.low_flow_ML_day": "MEASURED 432. Site extraction trigger, shown on every weekly water balance chart.",
+      "BurdekinToTurkeysNest.cutoffs.high_flow_ML_day": "PROVISIONAL 25000, was 100000. Pumps are physically withdrawn from the river at high flow to prevent damage. Observed: extraction recorded at zero with flow at 31,311 ML/day (17 Mar 2026) and 98,948 ML/day (10 Mar 2026); extraction had resumed at 9.4 ML/day with flow at 20,690 ML/day (31 Mar 2026). The true threshold lies between those bounds. Four observations only. Confirm the threshold and the pump reinstatement time before relying on it.",
+      "max_rate_in_ML_day": "MEASURED as achievable. Weekly reports show 13.1 to 17.8 ML/day sustained to Turkeys Nest. Rating of 34 retained as the nameplate ceiling.",
+      "TurkeysNestToSurhsCreek": "MEASURED as achievable. Weekly reports show 8.1 to 9.9 ML/day sustained, consistent with the 10.5 rating.",
+      "BurdekinToTurkeysNest.max_rate_in_ML_day": "PROVISIONAL 24.0, was 24.0. Two pumps; weekly metered peak 24.8 ML/day with both running. Meter 120 records from 2025-07-08 only.",
+      "BurdekinToTurkeysNest.operations": "PROVISIONAL. Flood withdrawal and reinstatement and TND stop and restart levels, fitted. Replaces the high-flow cutoff as the operative rule; cutoffs.high_flow_ML_day is set to the withdrawal trigger for display. Fitted by ModelCalibration.py on 2026-09-21 to the weekly site water balance, 2024-08-13 to 2026-08-25. Full-period NSE TND 0.74, SCD 0.98. See ModelCalibration.json.",
+      "TurkeysNestToSurhsCreek.operations": "PROVISIONAL. Booster replaces the daily draw on SCD (demand, seepage, evaporation, offtakes 044 and 045), stops at scd_stop_pct and restarts once SCD is drawn back to scd_target_pct. Replaces the hard-coded 50 and 85 per cent rule. Fitted by ModelCalibration.py on 2026-09-21 to the weekly site water balance, 2024-08-13 to 2026-08-25. Full-period NSE TND 0.74, SCD 0.98. See ModelCalibration.json."
+    },
+    "operations": "MEASURED where marked. Added for reference. The model does not read this block; it exists so that measured operating reality is recorded alongside the configuration it contradicts.",
+    "calibration": "PROVISIONAL. Fitted by ModelCalibration.py on 2026-09-21 to the weekly site water balance, 2024-08-13 to 2026-08-25. Full-period NSE TND 0.74, SCD 0.98. See ModelCalibration.json.",
+    "operating_profiles": "potential.river_rate_ML_day PROVISIONAL 26.8: best metered week of each river pump added (120 at 12.0, 121 at 14.8 ML/day, weekly means). Best combined week 24.8. potential.transfer_rate_ML_day PROVISIONAL 11.5: best 079 week excluding the October 2024 meter catch-up. Site advice 21 Sep 2026: no safety reason not to fill either dam to 100 per cent. See OpportunityAnalysis.py.",
+    "evaporation": "FAO-56 Penman-Monteith reference evapotranspiration times 1.05 for open water (Allen et al. 1998, Table 12). Radiation by Hargreaves (kRs 0.16) from the daily temperature range. Wind is the SSP2-4.5 day-of-year climatology at 10 m, converted to 2 m. Check: 4.9 mm/day calculated for late September against 5.3 mm reported by the Bureau of Meteorology for Charters Towers Airport, 20 Sep 2026. Replaces a simplified formula that gave 0.4 to 1.8 mm/day, about one third of FAO-56.",
+    "wtp_demand_ML_day": "MEASURED 0.5 ML/day, meter 166 (WTP raw in), mean of the last 52 weeks in RAW DATA_PIVOT of Weekly SWB.xlsx.",
+    "restrictions": "PROPOSED. Three-stage demand reduction on the mine (not the water treatment plant) once the river has been below the extraction trigger (432 ML/day) for 14 consecutive days: 10 per cent below 80 per cent of combined storage, 25 per cent below 65 per cent and 35 per cent below 50 per cent. Stages lift as storage recovers while pumping is possible. Flood withdrawal does not count towards the 14 days."
+  },
   "system": {
     "reservoirs": [
       {
         "name": "TurkeysNest",
         "capacity_ML": 1300,
-	"min_capacity_ML": 150,
+        "min_capacity_ML": 65,
         "initial_level_ML": 1200,
-        "surface_area_m\u00b2": 200000,
+        "surface_area_m²": 200000,
         "losses": {
-          "seepage_ML_day": 1.0
+          "seepage_gross_ML_day": 2.2,
+          "seepage_exponent": 1.0,
+          "seepage_returned_pct": 0.0
         },
         "inflows": {
           "fluvial": {
             "coefficient_ML_per_mm": 0.0,
             "min_rain_mm": 0.0
           }
+        },
+        "area_curves": {
+          "rating": {
+            "volume_ML": [
+              0.0,
+              383.7,
+              411.4,
+              439.9,
+              469.4,
+              499.8,
+              531.1,
+              563.3,
+              596.5,
+              630.5,
+              665.5,
+              701.4,
+              738.2,
+              775.9,
+              814.5,
+              854.1,
+              894.6,
+              935.9,
+              978.2,
+              1021.5,
+              1065.6,
+              1110.6,
+              1156.6,
+              1203.5,
+              1251.3,
+              1300.0
+            ],
+            "area_ha": [
+              0.0,
+              12.48,
+              12.9,
+              13.32,
+              13.74,
+              14.16,
+              14.58,
+              15.0,
+              15.42,
+              15.84,
+              16.26,
+              16.68,
+              17.1,
+              17.52,
+              17.94,
+              18.36,
+              18.78,
+              19.2,
+              19.62,
+              20.04,
+              20.46,
+              20.88,
+              21.31,
+              21.73,
+              22.15,
+              22.57
+            ],
+            "full_supply_RL_m": 197.67,
+            "floor_RL_m": 185.97,
+            "depth_at_full_m": 11.7,
+            "fitted_from_ML": 384.0
+          },
+          "steep_walls": {
+            "volume_ML": [
+              0.0,
+              48.0,
+              96.2,
+              144.9,
+              193.8,
+              243.1,
+              292.7,
+              342.6,
+              392.9,
+              443.5,
+              494.5,
+              545.8,
+              597.4,
+              649.4,
+              701.7,
+              754.4,
+              807.4,
+              860.7,
+              914.4,
+              968.4,
+              1022.8,
+              1077.5,
+              1132.6,
+              1188.1,
+              1243.9,
+              1300.0
+            ],
+            "area_ha": [
+              19.15,
+              19.28,
+              19.42,
+              19.55,
+              19.68,
+              19.81,
+              19.95,
+              20.08,
+              20.22,
+              20.35,
+              20.49,
+              20.62,
+              20.76,
+              20.9,
+              21.03,
+              21.17,
+              21.31,
+              21.45,
+              21.59,
+              21.72,
+              21.86,
+              22.0,
+              22.15,
+              22.29,
+              22.43,
+              22.57
+            ],
+            "depth_at_full_m": 6.2,
+            "batter": "1V:3H"
+          }
         }
       },
       {
         "name": "SurhsCreek",
-        "capacity_ML": 1380,
-	"min_capacity_ML": 180,
-        "initial_level_ML": 1200,
-        "surface_area_m\u00b2": 240000,
+        "capacity_ML": 1271,
+        "min_capacity_ML": 64,
+        "initial_level_ML": 1068,
+        "surface_area_m²": 240000,
         "losses": {
-          "seepage_ML_day": 1.0
+          "seepage_gross_ML_day": 0.9,
+          "seepage_exponent": 1.0,
+          "seepage_returned_pct": 60.0
         },
         "inflows": {
           "fluvial": {
-            "coefficient_ML_per_mm": 0.03,
-            "min_rain_mm": 12.0
+            "coefficient_ML_per_mm": 1.2,
+            "min_rain_mm": 40.0
           }
-        }
+        },
+        "area_curves": {
+          "rating": {
+            "volume_ML": [
+              0.0,
+              408.8,
+              431.1,
+              454.7,
+              479.4,
+              505.3,
+              532.4,
+              560.7,
+              590.1,
+              620.7,
+              652.5,
+              685.5,
+              719.7,
+              755.0,
+              791.5,
+              829.2,
+              868.1,
+              908.1,
+              949.4,
+              991.8,
+              1035.4,
+              1080.1,
+              1126.1,
+              1173.2,
+              1221.5,
+              1271.0
+            ],
+            "area_ha": [
+              0.0,
+              15.66,
+              16.5,
+              17.35,
+              18.2,
+              19.05,
+              19.89,
+              20.74,
+              21.59,
+              22.44,
+              23.28,
+              24.13,
+              24.98,
+              25.83,
+              26.68,
+              27.52,
+              28.37,
+              29.22,
+              30.07,
+              30.91,
+              31.76,
+              32.61,
+              33.46,
+              34.3,
+              35.15,
+              36.0
+            ],
+            "full_supply_RL_m": 308.0,
+            "floor_RL_m": 302.1,
+            "depth_at_full_m": 5.9,
+            "fitted_from_ML": 409.0
+          },
+          "steep_walls": {
+            "volume_ML": [
+              0.0,
+              49.0,
+              98.2,
+              147.5,
+              197.0,
+              246.6,
+              296.4,
+              346.3,
+              396.4,
+              446.7,
+              497.0,
+              547.6,
+              598.2,
+              649.1,
+              700.1,
+              751.2,
+              802.5,
+              853.9,
+              905.5,
+              957.3,
+              1009.2,
+              1061.2,
+              1113.4,
+              1165.8,
+              1218.3,
+              1271.0
+            ],
+            "area_ha": [
+              33.41,
+              33.51,
+              33.61,
+              33.72,
+              33.82,
+              33.92,
+              34.02,
+              34.13,
+              34.23,
+              34.33,
+              34.43,
+              34.54,
+              34.64,
+              34.75,
+              34.85,
+              34.95,
+              35.06,
+              35.16,
+              35.27,
+              35.37,
+              35.47,
+              35.58,
+              35.68,
+              35.79,
+              35.89,
+              36.0
+            ],
+            "depth_at_full_m": 3.7,
+            "batter": "1V:3H"
+          }
+        },
+        "community_reserve_pct": 20
       }
     ],
     "pumps": [
       {
         "name": "BurdekinToTurkeysNest",
-        "max_rate_in_ML_day": 34,
-	"max_rate_out_ML_day":10.5,
-        "cutoffs": { "low_flow_ML_day": 432.0, "high_flow_ML_day": 100000.0 }
+        "max_rate_in_ML_day": 24.0,
+        "max_rate_out_ML_day": 10.5,
+        "cutoffs": {
+          "low_flow_ML_day": 432.0,
+          "high_flow_ML_day": 20000.0
+        },
+        "operations": {
+          "withdraw_above_ML_day": 20000,
+          "reinstate_below_ML_day": 20000,
+          "reinstate_after_days": 7,
+          "tnd_stop_pct": 97,
+          "tnd_restart_pct": 75
+        }
       },
       {
         "name": "TurkeysNestToSurhsCreek",
         "max_rate_in_ML_day": 10.5,
-	"max_rate_out_ML_day": 10.0,
-        "cutoffs": { "low_flow_ML_day": null, "high_flow_ML_day": null }
+        "max_rate_out_ML_day": 10.0,
+        "cutoffs": {
+          "low_flow_ML_day": null,
+          "high_flow_ML_day": null
+        },
+        "operations": {
+          "control": "scd_hold",
+          "scd_target_pct": 84.0,
+          "scd_stop_pct": 94.0,
+          "offtakes_ML_day": 0.37
+        }
       }
-    ]
+    ],
+    "evaporation": {
+      "method": "FAO-56",
+      "open_water_factor": 1.05,
+      "latitude_deg": -20.115,
+      "elevation_m": 300.0,
+      "wind_height_m": 10.0,
+      "hargreaves_krs": 0.16,
+      "default_dtr_degC": 12.8
+    },
+    "area_method": "rating",
+    "wtp_demand_ML_day": 0.5,
+    "restrictions": {
+      "trigger_after_days": 14,
+      "stages": [
+        {
+          "below_pct": 80,
+          "reduce_pct": 10
+        },
+        {
+          "below_pct": 65,
+          "reduce_pct": 25
+        },
+        {
+          "below_pct": 50,
+          "reduce_pct": 35
+        }
+      ]
+    }
+  },
+  "operations": {
+    "_grade": "MEASURED unless stated",
+    "raw_water_demand_ML_day": {
+      "observed_range": [
+        7.0,
+        7.9
+      ],
+      "mean": 7.35,
+      "source": "weekly site water balance, raw water demand at SCD, Mar to Aug 2026",
+      "note": "Model presets used 6.36 from historical_data_consolidated.csv (2017 to 2025). From 21 Sep 2026 presets come from Weekly SWB.xlsx, the last 12 months of meter 014."
+    },
+    "min_volume_trigger_pct": {
+      "value": 30,
+      "source": "site water balance dam storage chart, applies to both dams"
+    },
+    "measured_combined_loss_ML_day": {
+      "_grade": "INFERRED",
+      "annual_median": 4.5,
+      "april_to_october_median": 5.46,
+      "interquartile_range": [
+        2.09,
+        7.81
+      ],
+      "method": "residual of measured dam level change against metered pumping, with site rainfall credited on surface area; 142 weekly intervals, Sep 2019 to May 2024",
+      "by_dam_median": {
+        "TurkeysNest": 2.99,
+        "SurhsCreek": 1.84
+      },
+      "turkeys_nest_level_dependence": "loss rises from 2.04 ML/day below 60 per cent to 6.63 ML/day at 85 to 95 per cent, with no seasonal signal; pattern indicates seepage rather than evaporation",
+      "confirm_by": "reconciling Turkeys Nest outflow against Surhs Creek inflow over a common period, which would also exclude transfer metering error as the cause",
+      "note": "Site water balance and this configuration together assume 2.5 to 3.0 ML/day. ReservoirSystem.calculate_evaporation returns 1.0 to 1.5 mm/day and is lowest in the dry season, which is the wrong direction; it should not be relied on."
+    },
+    "town_supply": {
+      "_grade": "ASSUMED",
+      "held_in": "SurhsCreek",
+      "population_basis": 400,
+      "reserve_years": 5,
+      "note": "Volume not established. Depends on the per capita rate adopted. Previously carried as 15 per cent of capacity. Potable duty cannot be met from process water because of cyanide."
+    },
+    "gauge": {
+      "current": "120002D",
+      "retired": "120002C",
+      "note": "MEASURED. 120002C was retired in May 2024 and continued to return padded records, so the flow record used for planning had silently stopped there. Restored to 9 Aug 2026 by splicing 120002D. There is no overlapping usable period, so the join is unvalidated. Data from Dec 2025 carries quality code 130, estimated rather than rated."
+    }
+  },
+  "operating_profiles": {
+    "_note": "as_operated uses the pump operations blocks as calibrated to site practice. potential is what the plant can do on the same river flow: both dams filled to 100 per cent and pumps run at the highest rates the meters have recorded. Flood withdrawal and reinstatement are left as operated.",
+    "as_operated": {},
+    "potential": {
+      "river_rate_ML_day": 26.8,
+      "transfer_rate_ML_day": 11.5,
+      "river_operations": {
+        "tnd_stop_pct": null,
+        "tnd_restart_pct": null
+      },
+      "transfer_operations": {
+        "control": "scd_target",
+        "scd_target_pct": 100,
+        "scd_stop_pct": null
+      }
+    }
   }
 }

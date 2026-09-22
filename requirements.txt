@@ -1,4 +1,8 @@
-    streamlit
-    plotly
-    pandas
-    # Add any other libraries your app uses
+streamlit
+plotly
+pandas
+numpy
+pyarrow
+openpyxl
+requests
+matplotlib

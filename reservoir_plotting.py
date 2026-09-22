@@ -23,8 +23,121 @@ def detect_data_frequency(index):
     return width_ms
 
 
+MAX_POINTS_PER_TRACE = 2500
+
+# Chart controls: always show the Plotly toolbar (download PNG, zoom, pan, reset) rather
+# than only on hover at the top of a tall figure, and save images at double resolution.
+PLOTLY_CONFIG = {
+    'displayModeBar': True,
+    'displaylogo': False,
+    'toImageButtonOptions': {'format': 'png', 'scale': 2},
+}
+
+
+def thin_figure(fig, max_points=MAX_POINTS_PER_TRACE):
+    """Average long daily traces to weekly, monthly or quarterly points for display.
+
+    Statistics and downloads use the full daily results; only what is sent to the
+    browser is thinned.  A 1971 to 2099 run is about 47,000 days per trace across
+    eleven panels, which is what made long ranges slow to draw.
+    """
+    for tr in fig.data:
+        x = getattr(tr, 'x', None)
+        y = getattr(tr, 'y', None)
+        if x is None or y is None or len(x) <= max_points:
+            continue
+        try:
+            series = pd.Series(np.asarray(y, dtype=float), index=pd.to_datetime(np.asarray(x)))
+        except (TypeError, ValueError):
+            continue
+        days = (series.index.max() - series.index.min()).days + 1
+        per_point = days / max_points
+        rule = 'W' if per_point <= 7 else 'MS' if per_point <= 31 else 'QS'
+        thinned = series.resample(rule).mean().dropna()
+        tr.x = thinned.index
+        tr.y = thinned.values
+        if isinstance(tr, go.Bar):
+            tr.width = None
+    return fig
+
+
+def _axis_num(name):
+    """'x' -> 1, 'x3' -> 3, 'y12' -> 12"""
+    return int(name[1:]) if len(name) > 1 else 1
+
+
+def split_subplots(fig, height=380):
+    """One figure per subplot panel, so each chart has its own toolbar and export.
+
+    Traces, reference lines and their labels move with their panel; the subplot
+    title becomes the chart title and a panel's secondary y axis is kept.
+    """
+    layout = fig.layout
+    titles = [a.text for a in layout.annotations if a.xref == 'paper' and a.yref == 'paper']
+    xnames = sorted({(t.xaxis or 'x') for t in fig.data}, key=_axis_num)
+    figs = []
+    for i, xn in enumerate(xnames):
+        xkey = 'xaxis' if xn == 'x' else f'xaxis{_axis_num(xn)}'
+        xax = layout[xkey]
+        primary = xax.anchor or 'y'
+        traces = [t for t in fig.data if (t.xaxis or 'x') == xn]
+        ynames = {(t.yaxis or 'y') for t in traces} | {primary}
+        ymap = {primary: 'y'}
+        for yn in sorted(ynames - {primary}, key=_axis_num):
+            ymap[yn] = 'y2'
+
+        new = go.Figure()
+        for t in traces:
+            t2 = go.Figure(t).data[0]
+            t2.update(xaxis='x', yaxis=ymap[t.yaxis or 'y'])
+            new.add_trace(t2)
+
+        def remap(ref):
+            if ref is None:
+                return ref
+            base, _, dom = ref.partition(' ')
+            if base == xn:
+                return 'x' + (' domain' if dom else '')
+            if base in ymap:
+                return ymap[base] + (' domain' if dom else '')
+            return None
+
+        for shp in layout.shapes:
+            xr, yr = remap(shp.xref), remap(shp.yref)
+            if xr and yr:
+                new.add_shape(shp.to_plotly_json() | {'xref': xr, 'yref': yr})
+        for ann in layout.annotations:
+            if ann.xref == 'paper' and ann.yref == 'paper':
+                continue
+            xr, yr = remap(ann.xref), remap(ann.yref)
+            if xr and yr:
+                new.add_annotation(ann.to_plotly_json() | {'xref': xr, 'yref': yr})
+
+        def axis_props(ax):
+            d = ax.to_plotly_json()
+            for k in ('domain', 'anchor', 'matches', 'overlaying', 'side', 'position'):
+                d.pop(k, None)
+            return d
+
+        new.update_layout(xaxis=axis_props(xax))
+        ykey = lambda n: 'yaxis' if n == 'y' else f'yaxis{_axis_num(n)}'
+        new.update_layout(yaxis=axis_props(layout[ykey(primary)]))
+        for yn, target in ymap.items():
+            if target == 'y2':
+                new.update_layout(yaxis2=axis_props(layout[ykey(yn)]) | {'overlaying': 'y', 'side': 'right'})
+
+        new.update_layout(
+            title_text=titles[i] if len(titles) == len(xnames) else None,
+            template=layout.template, hovermode=layout.hovermode, bargap=layout.bargap,
+            bargroupgap=layout.bargroupgap, height=height, showlegend=True,
+            margin=dict(t=50, b=40), legend=dict(orientation='h', y=-0.18),
+        )
+        figs.append(new)
+    return figs
+
+
 def create_plots(results, scenario_desc, start_year, end_year, r1_min, r2_min, river_pump_low, river_pump_high,
-                 r1_turkeys, r2_surhs, results_prior_12m=None):
+                 r1_turkeys, r2_surhs, results_prior_12m=None, r2_reserve=None):
     """Create all plots for results visualisation
     
     Args:
@@ -34,6 +147,7 @@ def create_plots(results, scenario_desc, start_year, end_year, r1_min, r2_min, r
         end_year: End year for display
         r1_min: TND minimum capacity
         r2_min: SCD minimum capacity
+        r2_reserve: SCD community reserve (ML); defaults to community_reserve_pct in the configuration
         river_pump_low: River pump low cutoff
         river_pump_high: River pump high cutoff
         r1_turkeys: TND reservoir config
@@ -89,7 +203,13 @@ def create_plots(results, scenario_desc, start_year, end_year, r1_min, r2_min, r
                   annotation_text=f"Surhs Creek Capacity: {r2_surhs['capacity_ML']} ML", row=1, col=1)
     if r2_min > 0:
         fig.add_hline(y=r2_min, line_dash="dash", line_color="orange",
-                      annotation_text=f"Surhs Creek Min: {r2_min} ML", row=1, col=1)
+                      annotation_text=f"Surhs Creek Min: {r2_min:,.0f} ML", row=1, col=1)
+    if r2_reserve is None:
+        r2_reserve = r2_surhs['capacity_ML'] * r2_surhs.get('community_reserve_pct', 0) / 100
+    if r2_reserve > 0:
+        fig.add_hline(y=r2_reserve, line_dash="dash", line_color="red",
+                      annotation_text=f"Site cut-off (community reserve) {r2_reserve / r2_surhs['capacity_ML'] * 100:.0f}%: "
+                                      f"{r2_reserve:,.0f} ML", annotation_position="top left", row=1, col=1)
 
     # TND (Turkeys Nest) Level
     fig.add_trace(
@@ -337,7 +457,7 @@ def create_plots(results, scenario_desc, start_year, end_year, r1_min, r2_min, r
         bargroupgap=0
     )
 
-    return fig
+    return thin_figure(fig)
 
 
 def create_weekly_charts(chart_data, pumps, reservoirs, selected_week):

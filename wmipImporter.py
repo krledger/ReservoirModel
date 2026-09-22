@@ -41,18 +41,38 @@ DRY_MONTHS = {5, 6, 7, 8, 9, 10}
 OUT_DIR = os.environ.get("WMIP_OUT_DIR", os.path.join(os.path.dirname(__file__), "wmipData"))
 
 
+# Quality code thresholds. Single definition, used by every consumer of this module
+# so the download path and the model path cannot disagree about what is usable.
+BAD_QUALITY_MIN = 200          # quality codes at or above this are unusable
+MISSING_QUALITY = 255          # explicit "no data" code, padded by retired stations
+
+
+def is_bad_quality(quality) -> "pd.Series":
+    """Canonical usability test for a quality-code series."""
+    q = pd.to_numeric(quality, errors="coerce")
+    return (q >= BAD_QUALITY_MIN) | (q == MISSING_QUALITY)
+
+
 # -----------------------------
 # WMIP fetch + parse
 # -----------------------------
-def _get_url(varcode: str, datasource: str) -> str:
+def _get_url(varcode: str, datasource: str, site: str = None, start: str = None,
+             end: str = None, interval: str = "day", data_type: str = "mean") -> str:
+    """Site, window and interval default to the module configuration, so existing
+    two-argument calls are unchanged. Pass them to fetch a different station or a
+    coarser interval without mutating module state."""
     obj = {"function": "get_ts_traces", "version": "2", "params": {
-        "site_list": SITE, "datasource": datasource, "varfrom": varcode, "varto": varcode,
-        "start_time": START, "end_time": END, "data_type": "mean", "interval": "day", "multiplier": "1"}}
+        "site_list": site or SITE, "datasource": datasource,
+        "varfrom": varcode, "varto": varcode,
+        "start_time": start or START, "end_time": end or END,
+        "data_type": data_type, "interval": interval, "multiplier": "1"}}
     return f"{WMIP_URL}?{quote(json.dumps(obj), safe='')}"
 
 
-def fetch_raw(varcode: str, datasource: str) -> dict:
-    r = requests.get(_get_url(varcode, datasource), timeout=180)
+def fetch_raw(varcode: str, datasource: str, site: str = None, start: str = None,
+              end: str = None, interval: str = "day", timeout: int = 180) -> dict:
+    r = requests.get(_get_url(varcode, datasource, site, start, end, interval),
+                     timeout=timeout)
     r.raise_for_status()
     return r.json()
 
@@ -94,8 +114,7 @@ def consolidate_daily(df_q: pd.DataFrame, df_l: pd.DataFrame) -> pd.DataFrame:
 
     # Find the last date with good quality data
     if 'CUMECS_quality' in df.columns:
-        quality = pd.to_numeric(df['CUMECS_quality'], errors='coerce')
-        good_data_mask = (quality < 200) & (quality != 255)
+        good_data_mask = ~is_bad_quality(df['CUMECS_quality'])
 
         # Find last continuous stretch of good data
         # Allow small gaps (< 30 days) but stop at large continuous bad data
@@ -129,9 +148,7 @@ def consolidate_daily(df_q: pd.DataFrame, df_l: pd.DataFrame) -> pd.DataFrame:
             # Mark bad data based on quality codes
             quality_col = f"{col}_quality" if f"{col}_quality" in df.columns else None
             if quality_col and quality_col in df.columns:
-                quality = df[quality_col]
-                bad_quality = pd.to_numeric(quality, errors="coerce")
-                bad_mask = (bad_quality >= 200) | (bad_quality == 255)
+                bad_mask = is_bad_quality(df[quality_col])
                 if bad_mask.sum() > 0:
                     print(f"  {col}: marked {bad_mask.sum()} values as bad based on quality codes")
                     s[bad_mask] = np.nan
@@ -542,9 +559,9 @@ def main():
         qc_counts = df_q['CUMECS_quality'].value_counts().sort_index()
         for qc, count in list(qc_counts.items())[:10]:
             print(f"  Code {qc}: {count:,} records")
-        bad_count = ((pd.to_numeric(df_q['CUMECS_quality'], errors='coerce') >= 200) |
-                     (pd.to_numeric(df_q['CUMECS_quality'], errors='coerce') == 255)).sum()
-        print(f"  Records to be interpolated (quality >= 200 or 255): {bad_count:,}")
+        bad_count = is_bad_quality(df_q['CUMECS_quality']).sum()
+        print(f"  Records to be interpolated "
+              f"(quality >= {BAD_QUALITY_MIN} or {MISSING_QUALITY}): {bad_count:,}")
 
     if 'Level_m_quality' in df_l.columns:
         print(f"\nQuality code distribution (level):")

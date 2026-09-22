@@ -1,11 +1,17 @@
 """
 Core reservoir operations and simulation logic
+
+Losses come from ReservoirPhysics: FAO-56 open water evaporation on a surface
+area that follows the stored volume, and Darcy-scaled seepage with a share
+recovered and pumped back.
 """
 
 import pandas as pd
 import numpy as np
 import json
 from pathlib import Path
+
+import ReservoirPhysics as rp
 
 
 class ReservoirSystem:
@@ -89,34 +95,14 @@ class ReservoirSystem:
         return self.system_config
 
     def load_climate_data(self, scenario='SSP1-26'):
-        """Load climate data from parquet file based on scenario"""
-        climate_base = self.base_path / 'metricsDataFiles'
+        """Load climate for a named source (see ModelInputs.CLIMATE_SOURCES).
 
-        if not climate_base.exists():
-            raise FileNotFoundError(f"Climate data directory not found: {climate_base}")
-
-        parquet_file = None
-
-        # Look for scenario-specific file first
-        scenario_patterns = [
-            f'raw_daily_{scenario}.parquet',
-            f'{scenario}_raw_daily.parquet',
-            f'raw_daily.parquet'
-        ]
-
-        for root, dirs, files in os.walk(climate_base):
-            for pattern in scenario_patterns:
-                if pattern in files:
-                    parquet_file = Path(root) / pattern
-                    break
-            if parquet_file:
-                break
-
-        if not parquet_file or not parquet_file.exists():
-            raise FileNotFoundError(f"Climate data file not found for scenario '{scenario}' in {climate_base}")
-
-        self.climate_data = pd.read_parquet(parquet_file)
-        self.climate_data.index = pd.to_datetime(self.climate_data.index)
+        Reads metricsDataFiles/<scenario>/raw_daily.parquet explicitly.  The previous
+        loader walked metricsDataFiles and took the first raw_daily.parquet it met,
+        so every scenario loaded the same file.
+        """
+        from ModelInputs import load_climate
+        self.climate_data = load_climate(scenario)
         return self.climate_data
 
     def load_flow_data(self, flow_file='flows_bootstrap_typical.parquet'):
@@ -150,14 +136,18 @@ class ReservoirSystem:
         rh = np.clip(rh, 0, 100)
         return rh
 
-    def calculate_evaporation(self, temperature, humidity, wind_speed=2.0):
-        """Calculate evaporation using Penman equation (simplified)"""
-        es = 0.6108 * np.exp((17.27 * temperature) / (temperature + 237.3))
-        ea = (humidity / 1000) * 101.325 / 0.622
-        vpd = es - ea
-        vpd = np.maximum(vpd, 0)
-        evaporation = 0.5 * (temperature / 20) * vpd * (1 + 0.5 * wind_speed / 2)
-        return np.maximum(evaporation, 0)
+    def calculate_evaporation(self, temperature, humidity, wind_speed=2.0, dtr=None, dates=None):
+        """Open water evaporation, mm/day: FAO-56 reference evapotranspiration times the open water factor.
+
+        temperature is the daily mean (degC), humidity specific humidity (g/kg), wind at 10 m (m/s),
+        dtr the daily temperature range (degC) and dates the days, for solar radiation.
+        """
+        temperature = np.asarray(temperature, dtype=float)
+        if np.ndim(wind_speed) == 0:
+            wind_speed = np.full(len(temperature), float(wind_speed))
+        doy = pd.DatetimeIndex(dates).dayofyear.values if dates is not None else np.full(len(temperature), 182)
+        settings = rp.evaporation_settings(self.system_config or {})
+        return rp.open_water_evaporation_mm(temperature, dtr, humidity, wind_speed, doy, settings)
 
     def simulate_reservoir_system(self, start_date, end_date, params):
         """Simulate the reservoir system with custom parameters"""
@@ -195,8 +185,13 @@ class ReservoirSystem:
         else:
             river_flow = np.ones(len(data)) * 100
 
+        dtr = data['dtr_Ravenswood_degC'].values if 'dtr_Ravenswood_degC' in data.columns else None
         relative_humidity = self.calculate_relative_humidity(temperature, specific_humidity)
-        evaporation_mm = self.calculate_evaporation(temperature, specific_humidity, wind)
+        evap_settings = rp.evaporation_settings(self.system_config)
+        if params.get('open_water_factor') is not None:
+            evap_settings['open_water_factor'] = float(params['open_water_factor'])
+        evaporation_mm = rp.open_water_evaporation_mm(temperature, dtr, specific_humidity, wind,
+                                                      data.index.dayofyear.values, evap_settings)
 
         # Get configuration
         reservoirs = self.system_config['system']['reservoirs']
@@ -204,8 +199,45 @@ class ReservoirSystem:
         r1_turkeys = reservoirs[0]
         r2_surhs = reservoirs[1]
 
-        r1_min_capacity = r1_turkeys.get('min_capacity_ML', 0)
-        r2_min_capacity = r2_surhs.get('min_capacity_ML', 0)
+        r1_min_capacity = params.get('r1_min_capacity', r1_turkeys.get('min_capacity_ML', 0))
+        area_how = rp.area_method(self.system_config, params.get('area_method'))
+        seep_override = params.get('seepage', {}) or {}
+        r1_seep = rp.seepage_settings(r1_turkeys, seep_override.get('r1'))
+        r2_seep = rp.seepage_settings(r2_surhs, seep_override.get('r2'))
+        r1_curve = rp.area_curve(r1_turkeys, area_how)
+        r2_curve = rp.area_curve(r2_surhs, area_how)
+        r1_fixed = None if r1_curve else rp.fixed_area_m2(r1_turkeys)
+        r2_fixed = None if r2_curve else rp.fixed_area_m2(r2_surhs)
+
+        def area_at(curve, fixed, volume):
+            return fixed if curve is None else float(np.interp(volume, curve[0], curve[1])) * 1e4
+
+        def seep_at(res, s, volume):
+            frac = min(max(volume / res['capacity_ML'], 0.0), 1.0)
+            gross = s['gross_ML_day'] * frac ** s['exponent']
+            return gross, gross * s['returned_pct'] / 100
+        r2_min_capacity = params.get('r2_min_capacity', r2_surhs.get('min_capacity_ML', 0))
+        # Community reserve on SCD: below it the site stops and only the water treatment plant draws,
+        # down to the minimum pumping level
+        r2_reserve = params.get('r2_community_reserve',
+                                r2_surhs['capacity_ML'] * r2_surhs.get('community_reserve_pct', 0) / 100)
+        wtp_ML_day = params.get('wtp_demand_ML_day', self.system_config['system'].get('wtp_demand_ML_day', 0.0))
+        # Staged demand restrictions (off unless asked for): once the river has been below the extraction
+        # trigger for trigger_after_days, site demand is cut as combined storage falls through each stage;
+        # stages lift as storage recovers while pumping is possible.  The treatment plant is not cut.
+        restr = dict(self.system_config['system'].get('restrictions', {}) or {})
+        restr.update(params.get('restrictions', {}) or {})
+        apply_restr = bool(params.get('apply_restrictions', False))
+        stages = sorted(((st['below_pct'], st['reduce_pct']) for st in restr.get('stages', [])), reverse=True)
+        restr_after = int(restr.get('trigger_after_days', 14))
+        cap_total = r1_turkeys['capacity_ML'] + r2_surhs['capacity_ML']
+
+        def stage_for(total):
+            k = 0
+            for j, (below, _) in enumerate(stages, start=1):
+                if total < below / 100 * cap_total:
+                    k = j
+            return k
 
         # Initialise arrays
         n = len(data)
@@ -220,8 +252,21 @@ class ReservoirSystem:
         total_inflow = np.zeros(n)
         r1_evap_loss = np.zeros(n)
         r2_evap_loss = np.zeros(n)
+        r1_area_ha = np.zeros(n)
+        r2_area_ha = np.zeros(n)
+        r1_seep_gross = np.zeros(n)
+        r1_seep_returned = np.zeros(n)
+        r2_seep_gross = np.zeros(n)
+        r2_seep_returned = np.zeros(n)
         demand_supplied = np.zeros(n)
         demand_deficit = np.zeros(n)
+        site_supplied = np.zeros(n)
+        wtp_supplied = np.zeros(n)
+        site_deficit = np.zeros(n)
+        wtp_deficit = np.zeros(n)
+        restriction_stage = np.zeros(n, dtype=int)
+        outside_days = 0
+        stage = 0
 
         # Initial levels
         r1_level[0] = params.get('r1_initial', r1_turkeys['initial_level_ML'])
@@ -236,7 +281,34 @@ class ReservoirSystem:
         low_cutoff = params.get('river_pump_low_cutoff', pumps[0]['cutoffs']['low_flow_ML_day'])
         high_cutoff = params.get('river_pump_high_cutoff', pumps[0]['cutoffs']['high_flow_ML_day'])
 
+        # Operating rules.  Every key is optional; when a key is absent the
+        # original behaviour applies, so older configurations run unchanged.
+        river_ops = dict(pumps[0].get('operations', {}))
+        river_ops.update(params.get('river_operations', {}))
+        withdraw_above = river_ops.get('withdraw_above_ML_day')          # flood withdrawal of the river pumps
+        reinstate_below = river_ops.get('reinstate_below_ML_day', withdraw_above)
+        reinstate_after = int(river_ops.get('reinstate_after_days', 0))
+        tnd_stop_pct = river_ops.get('tnd_stop_pct')                       # stop filling TND at this level
+        tnd_restart_pct = river_ops.get('tnd_restart_pct', tnd_stop_pct)   # resume below this level
+
+        transfer_ops = dict(pumps[1].get('operations', {}))
+        transfer_ops.update(params.get('transfer_operations', {}))
+        transfer_control = transfer_ops.get('control', 'legacy')           # 'legacy', 'scd_target' or 'scd_hold'
+        scd_target_pct = transfer_ops.get('scd_target_pct', 70)            # SCD operating level, % of capacity
+        scd_stop_pct = transfer_ops.get('scd_stop_pct')                    # booster off at this SCD level
+        offtakes_ML_day = transfer_ops.get('offtakes_ML_day', 0.0)         # taken from the transfer main before SCD
+
         demand_ML_day = params.get('demand_ML_day', 9.8)
+        demand_series = params.get('demand_series')                        # optional daily forcing (hindcasts)
+        if demand_series is not None:
+            demand_base = pd.Series(demand_series).reindex(data.index).ffill().bfill().fillna(demand_ML_day).values
+        else:
+            demand_base = np.full(n, demand_ML_day, dtype=float)
+        river_rate_series = params.get('river_pump_rate_series')           # optional daily pump capacity (hindcasts)
+        if river_rate_series is not None:
+            river_rate = pd.Series(river_rate_series).reindex(data.index).ffill().bfill().fillna(pump_river_to_r1_max).values
+        else:
+            river_rate = np.full(n, pump_river_to_r1_max, dtype=float)
 
         # Random variations
         enable_random = params.get('enable_random', False)
@@ -256,17 +328,64 @@ class ReservoirSystem:
             pump_r1_r2_multipliers = np.ones(n)
             pump_r2_site_multipliers = np.ones(n)
 
+        river_pumps_out = np.zeros(n, dtype=bool)
+        offtake = np.zeros(n)
+        withdrawn = False
+        calm_days = 0
+        tnd_full = False
+        booster_off = False
+        r1_area_ha[0] = area_at(r1_curve, r1_fixed, r1_level[0]) / 1e4
+        r2_area_ha[0] = area_at(r2_curve, r2_fixed, r2_level[0]) / 1e4
+
         # Simulation loop
         for i in range(1, n):
             r1_current = r1_level[i - 1]
             r2_current = r2_level[i - 1]
 
-            # Pump: River ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ R1
+            # Surface area and seepage follow the volume stored at the start of the day
+            area_r1 = area_at(r1_curve, r1_fixed, r1_current)
+            area_r2 = area_at(r2_curve, r2_fixed, r2_current)
+            r1_area_ha[i], r2_area_ha[i] = area_r1 / 1e4, area_r2 / 1e4
+            r1_seep_gross[i], r1_seep_returned[i] = seep_at(r1_turkeys, r1_seep, r1_current)
+            r2_seep_gross[i], r2_seep_returned[i] = seep_at(r2_surhs, r2_seep, r2_current)
+            r1_seep_net = r1_seep_gross[i] - r1_seep_returned[i]
+            r2_seep_net = r2_seep_gross[i] - r2_seep_returned[i]
+
+            # Flood withdrawal: pumps come out above the trigger and return once flow
+            # has stayed below the reinstatement level for the stated number of days
+            if withdraw_above is not None:
+                if river_flow[i] > withdraw_above:
+                    withdrawn = True
+                    calm_days = 0
+                elif withdrawn:
+                    calm_days = calm_days + 1 if river_flow[i] < reinstate_below else 0
+                    if calm_days >= reinstate_after:
+                        withdrawn = False
+            river_pumps_out[i] = withdrawn
+
+            # Restriction stage, from storage at the start of the day
+            # Days the river has been below the extraction trigger; flood withdrawal does not count, as there is
+            # no shortage of river water then
+            in_window = (not withdrawn) and low_cutoff <= river_flow[i] <= high_cutoff
+            outside_days = outside_days + 1 if river_flow[i] < low_cutoff else 0
+            if apply_restr and stages:
+                now = stage_for(r1_current + r2_current)
+                stage = max(stage, now) if outside_days >= restr_after else (min(stage, now) if in_window else stage)
+                restriction_stage[i] = stage
+
+            # TND fill control with hysteresis
+            if tnd_stop_pct is not None:
+                if r1_current >= r1_turkeys['capacity_ML'] * tnd_stop_pct / 100:
+                    tnd_full = True
+                elif r1_current <= r1_turkeys['capacity_ML'] * tnd_restart_pct / 100:
+                    tnd_full = False
+
+            # Pump: River to R1
             available_capacity_r1 = r1_turkeys['capacity_ML'] - r1_current
-            if available_capacity_r1 <= 0:
+            if available_capacity_r1 <= 0 or withdrawn or tnd_full:
                 pump_river_to_r1[i] = 0
             elif river_flow[i] >= low_cutoff and river_flow[i] <= high_cutoff:
-                actual_pump_max = pump_river_to_r1_max * pump_river_r1_multipliers[i]
+                actual_pump_max = river_rate[i] * pump_river_r1_multipliers[i]
                 pump_river_to_r1[i] = min(actual_pump_max, available_capacity_r1)
             else:
                 pump_river_to_r1[i] = 0
@@ -279,8 +398,8 @@ class ReservoirSystem:
 
             # Pluvial inflow
             if precipitation[i] >= 2.0:
-                pluvial_inflow_r1[i] = (precipitation[i] / 1000) * self.get_surface_area(r1_turkeys) / 1000
-                pluvial_inflow_r2[i] = (precipitation[i] / 1000) * self.get_surface_area(r2_surhs) / 1000
+                pluvial_inflow_r1[i] = (precipitation[i] / 1000) * area_r1 / 1000
+                pluvial_inflow_r2[i] = (precipitation[i] / 1000) * area_r2 / 1000
             else:
                 pluvial_inflow_r1[i] = 0
                 pluvial_inflow_r2[i] = 0
@@ -288,21 +407,43 @@ class ReservoirSystem:
             total_inflow[i] = fluvial_inflow[i] + pluvial_inflow_r2[i]
 
             # Evaporation losses
-            r1_evap_loss[i] = (evaporation_mm[i] / 1000) * self.get_surface_area(r1_turkeys) / 1000
-            r2_evap_loss[i] = (evaporation_mm[i] / 1000) * self.get_surface_area(r2_surhs) / 1000
+            r1_evap_loss[i] = (evaporation_mm[i] / 1000) * area_r1 / 1000
+            r2_evap_loss[i] = (evaporation_mm[i] / 1000) * area_r2 / 1000
 
             # Update R1
             r1_current += pump_river_to_r1[i] + pluvial_inflow_r1[i]
-            r1_current -= r1_turkeys['losses']['seepage_ML_day'] + r1_evap_loss[i]
+            r1_current -= r1_seep_net + r1_evap_loss[i]
 
-            # Pump: R1 ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ R2
+            # Pump: R1 to R2
             available_water_r1 = max(0, r1_current - r1_min_capacity)
             available_capacity_r2 = max(0, r2_surhs['capacity_ML'] - r2_current)
+            actual_pump_r1_r2_max = pump_r1_to_r2_max * pump_r1_r2_multipliers[i]
+            actual_demand = demand_base[i] * demand_multipliers[i]
 
             if available_water_r1 <= 0 or available_capacity_r2 <= 0:
                 pump_r1_to_r2[i] = 0
+            elif transfer_control in ('scd_target', 'scd_hold'):
+                # Booster hysteresis on SCD: off at or above the stop level, back on
+                # once SCD has been drawn down to the operating level.
+                if scd_stop_pct is not None:
+                    if r2_current >= r2_surhs['capacity_ML'] * scd_stop_pct / 100:
+                        booster_off = True
+                    elif r2_current <= r2_surhs['capacity_ML'] * scd_target_pct / 100:
+                        booster_off = False
+                draw = (min(actual_demand, pump_r2_to_site_max)
+                        + r2_seep_net + r2_evap_loss[i])
+                if booster_off:
+                    pump_r1_to_r2[i] = 0
+                elif transfer_control == 'scd_hold':
+                    # Replace the day's draw on SCD, so SCD holds its level and
+                    # moves only on catchment runoff
+                    pump_r1_to_r2[i] = min(actual_pump_r1_r2_max, draw + offtakes_ML_day, available_water_r1)
+                else:
+                    # Fill SCD towards the operating level
+                    r2_projected = r2_current + fluvial_inflow[i] + pluvial_inflow_r2[i] - draw
+                    gap = r2_surhs['capacity_ML'] * scd_target_pct / 100 - r2_projected
+                    pump_r1_to_r2[i] = min(actual_pump_r1_r2_max, max(0.0, gap + offtakes_ML_day), available_water_r1)
             else:
-                actual_pump_r1_r2_max = pump_r1_to_r2_max * pump_r1_r2_multipliers[i]
                 r1_target = r1_turkeys['capacity_ML'] * 0.70
                 r2_target = r2_surhs['capacity_ML'] * 0.70
                 r1_high = r1_turkeys['capacity_ML'] * 0.85
@@ -326,27 +467,30 @@ class ReservoirSystem:
                 pump_r1_to_r2[i] = max(0, min(pump_r1_to_r2[i], actual_pump_r1_r2_max))
                 pump_r1_to_r2[i] = min(pump_r1_to_r2[i], available_capacity_r2)
 
+            offtake[i] = min(offtakes_ML_day, pump_r1_to_r2[i])
             r1_current -= pump_r1_to_r2[i]
             r1_current = max(r1_min_capacity, min(r1_current, r1_turkeys['capacity_ML']))
             r1_level[i] = r1_current
 
             # Update R2
-            r2_current += pump_r1_to_r2[i] + fluvial_inflow[i] + pluvial_inflow_r2[i]
-            r2_current -= r2_surhs['losses']['seepage_ML_day'] + r2_evap_loss[i]
+            r2_current += pump_r1_to_r2[i] - offtake[i] + fluvial_inflow[i] + pluvial_inflow_r2[i]
+            r2_current -= r2_seep_net + r2_evap_loss[i]
 
-            # Pump: R2 ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ Site
-            available_water_r2 = max(0, r2_current - r2_min_capacity)
+            # Pump: R2 to Site.  The water treatment plant is supplied first and down to the minimum
+            # pumping level; the rest of site only while SCD stays above the community reserve.
             actual_pump_r2_site_max = pump_r2_to_site_max * pump_r2_site_multipliers[i]
-            actual_demand = demand_ML_day * demand_multipliers[i]
-
-            if available_water_r2 <= 0:
-                pump_r2_to_site[i] = 0
-            else:
-                pump_r2_to_site[i] = min(actual_pump_r2_site_max, actual_demand, available_water_r2)
-
-            pump_r2_to_site[i] = max(0, pump_r2_to_site[i])
+            wtp_need = min(wtp_ML_day, actual_demand)
+            site_need = actual_demand - wtp_need
+            if restriction_stage[i]:
+                site_need *= 1 - stages[restriction_stage[i] - 1][1] / 100
+            wtp_supplied[i] = max(0.0, min(wtp_need, actual_pump_r2_site_max, r2_current - r2_min_capacity))
+            site_supplied[i] = max(0.0, min(site_need, actual_pump_r2_site_max - wtp_supplied[i],
+                                            r2_current - wtp_supplied[i] - max(r2_reserve, r2_min_capacity)))
+            pump_r2_to_site[i] = wtp_supplied[i] + site_supplied[i]
             r2_current -= pump_r2_to_site[i]
 
+            wtp_deficit[i] = wtp_need - wtp_supplied[i]
+            site_deficit[i] = site_need - site_supplied[i]
             demand_supplied[i] = pump_r2_to_site[i]
             demand_deficit[i] = actual_demand - pump_r2_to_site[i]
 
@@ -368,16 +512,51 @@ class ReservoirSystem:
             'total_inflow_ML': total_inflow,
             'r1_evap_ML_day': r1_evap_loss,
             'r2_evap_ML_day': r2_evap_loss,
+            'r1_area_ha': r1_area_ha,
+            'r2_area_ha': r2_area_ha,
+            'r1_seepage_gross_ML_day': r1_seep_gross,
+            'r1_seepage_returned_ML_day': r1_seep_returned,
+            'r1_seepage_ML_day': r1_seep_gross - r1_seep_returned,
+            'r2_seepage_gross_ML_day': r2_seep_gross,
+            'r2_seepage_returned_ML_day': r2_seep_returned,
+            'r2_seepage_ML_day': r2_seep_gross - r2_seep_returned,
             'pump_river_to_r1_ML_day': pump_river_to_r1,
             'pump_r1_to_r2_ML_day': pump_r1_to_r2,
             'pump_r2_to_site_ML_day': pump_r2_to_site,
             'r1_level_ML': r1_level,
             'r2_level_ML': r2_level,
             'demand_supplied_ML': demand_supplied,
-            'demand_deficit_ML': demand_deficit
+            'demand_deficit_ML': demand_deficit,
+            'site_supplied_ML': site_supplied,
+            'wtp_supplied_ML': wtp_supplied,
+            'site_deficit_ML': site_deficit,
+            'wtp_deficit_ML': wtp_deficit,
+            'restriction_stage': restriction_stage,
+            'offtake_ML_day': offtake,
+            'river_pumps_withdrawn': river_pumps_out
         })
         results.set_index('date', inplace=True)
         return results
+
+
+def operating_profile_params(config, profile='as_operated'):
+    """Simulation params for a named operating profile in reservoir_system.json.
+
+    'as_operated' (or a missing profile) returns no overrides, so the pump
+    operations blocks in the configuration apply as calibrated.  Other profiles
+    override pump rates and operating rules.
+    """
+    spec = config.get('operating_profiles', {}).get(profile, {}) or {}
+    params = {}
+    if spec.get('river_rate_ML_day') is not None:
+        params['pump_river_to_r1_max'] = spec['river_rate_ML_day']
+    if spec.get('transfer_rate_ML_day') is not None:
+        params['pump_r1_to_r2_max'] = spec['transfer_rate_ML_day']
+    if spec.get('river_operations'):
+        params['river_operations'] = dict(spec['river_operations'])
+    if spec.get('transfer_operations'):
+        params['transfer_operations'] = dict(spec['transfer_operations'])
+    return params
 
 
 def calculate_statistics(results, reservoirs, pumps=None):
@@ -397,7 +576,7 @@ def calculate_statistics(results, reservoirs, pumps=None):
     
     stats = {
         'total_deficit': results['demand_deficit_ML'].sum(),
-        'deficit_days': (results['demand_deficit_ML'] > 0).sum(),
+        'deficit_days': (results['demand_deficit_ML'] > 0.01).sum(),
         'avg_r1': results['r1_level_ML'].mean(),
         'avg_r2': results['r2_level_ML'].mean(),
         'min_r2': results['r2_level_ML'].min(),
@@ -411,11 +590,21 @@ def calculate_statistics(results, reservoirs, pumps=None):
         'total_fluvial': results['fluvial_inflow_ML'].sum() if 'fluvial_inflow_ML' in results.columns else 0,
         'total_pluvial_r2': results['pluvial_inflow_r2_ML'].sum() if 'pluvial_inflow_r2_ML' in results.columns else 0,
     }
+    for use in ('site', 'wtp'):
+        col = f'{use}_deficit_ML'
+        if col in results.columns:
+            stats[f'{use}_deficit'] = results[col].sum()
+            stats[f'{use}_deficit_days'] = int((results[col] > 0.01).sum())
     
     # Calculate days of storage for each reservoir and combined
     # Get seepage and evaporation rates
-    r1_seepage = reservoirs[0]['losses']['seepage_ML_day']
-    r2_seepage = reservoirs[1]['losses']['seepage_ML_day']
+    # Net seepage (gross less returned) as simulated; configured value at the mean level for older results
+    if 'r1_seepage_ML_day' in results.columns:
+        r1_seepage = results['r1_seepage_ML_day'].iloc[1:].mean()
+        r2_seepage = results['r2_seepage_ML_day'].iloc[1:].mean()
+    else:
+        r1_seepage = float(rp.seepage_ML_day(reservoirs[0], stats['avg_r1'])[2])
+        r2_seepage = float(rp.seepage_ML_day(reservoirs[1], stats['avg_r2'])[2])
     avg_r1_evap = results['r1_evap_ML_day'].mean() if 'r1_evap_ML_day' in results.columns else 0
     avg_r2_evap = results['r2_evap_ML_day'].mean() if 'r2_evap_ML_day' in results.columns else 0
     avg_demand = stats['avg_pump_r2_site']
@@ -571,103 +760,22 @@ def extract_presets_from_historical(historical_results):
     if pd.isna(presets['demand_avg']):
         presets['demand_avg'] = 9.8
     
+    # Demand split: water treatment plant (meter 166, supplied from 014) and the rest of site
+    wtp = recent_data['wtp_ML_day'].mean() if 'wtp_ML_day' in recent_data.columns else float('nan')
+    presets['wtp_avg'] = 0.5 if pd.isna(wtp) else float(wtp)
+    presets['site_avg'] = max(0.0, presets['demand_avg'] - presets['wtp_avg'])
+    # Site demand by use (SiteActuals.DEMAND_USES and the unmetered remainder of 014)
+    for use in ('plant', 'gland', 'dust', 'minor', 'other'):
+        col = f'{use}_ML_day'
+        v = recent_data[col].mean() if col in recent_data.columns else float('nan')
+        presets[f'{use}_avg'] = None if pd.isna(v) else max(0.0, float(v))
+    offtakes = recent_data['offtake_ML_day'].mean() if 'offtake_ML_day' in recent_data.columns else float('nan')
+    presets['offtake_avg'] = None if pd.isna(offtakes) else float(offtakes)
+
     presets['model_start_year'] = presets['model_start_date'].year
     presets['model_end_year'] = presets['model_start_year'] + 5
     
     return presets
-
-
-def prepare_flow_scenario(base_path, drought_years, rain_years):
-    """Load and modify flow scenario based on user selections"""
-    from pathlib import Path
-    
-    flow_base = Path(base_path) / 'wmipData'
-    typical_file = flow_base / 'flows_bootstrap_typical.parquet'
-
-    if not typical_file.exists():
-        raise FileNotFoundError(f"TYPICAL scenario not found: {typical_file}")
-
-    base_flows = pd.read_parquet(typical_file)
-
-    if 'Date' in base_flows.columns:
-        base_flows['Date'] = pd.to_datetime(base_flows['Date'])
-        base_flows = base_flows.set_index('Date')
-
-    # Find available templates
-    scenarios = find_scenario_files(flow_base)
-
-    # Apply extreme year insertions
-    if drought_years and 'DROUGHT_TEMPLATE' in scenarios:
-        drought_template = load_extreme_template(scenarios['DROUGHT_TEMPLATE'])
-        for year in drought_years:
-            base_flows = insert_extreme_year_into_flows(
-                base_flows, drought_template, year, 'DROUGHT'
-            )
-
-    if rain_years and 'RAIN_TEMPLATE' in scenarios:
-        rain_template = load_extreme_template(scenarios['RAIN_TEMPLATE'])
-        for year in rain_years:
-            base_flows = insert_extreme_year_into_flows(
-                base_flows, rain_template, year, 'EXTREME_RAIN'
-            )
-
-    return base_flows
-
-
-def find_scenario_files(data_dir):
-    """Scan directory for scenario parquet files"""
-    scenarios = {}
-    data_path = Path(data_dir)
-
-    if not data_path.exists():
-        return scenarios
-
-    for fpath in data_path.glob("*.parquet"):
-        fname = fpath.name
-
-        if "typical" in fname.lower():
-            scenarios["TYPICAL"] = str(fpath)
-        elif "drought" in fname.lower() and "extreme" in fname.lower():
-            scenarios["DROUGHT_TEMPLATE"] = str(fpath)
-        elif "rain" in fname.lower() and "extreme" in fname.lower():
-            scenarios["RAIN_TEMPLATE"] = str(fpath)
-
-    return scenarios
-
-
-def load_extreme_template(template_path):
-    """Load 365-day extreme template"""
-    df = pd.read_parquet(template_path)
-    if 'Date' in df.columns:
-        df['Date'] = pd.to_datetime(df['Date'])
-        df = df.set_index('Date')
-    return df
-
-
-def insert_extreme_year_into_flows(base_flows, extreme_template, target_year, scenario_type):
-    """Insert extreme year template into target hydrological year"""
-    flows = base_flows.copy()
-    extreme_data = extreme_template.copy()
-
-    def shift_date(d):
-        if d.month >= 11:
-            return d.replace(year=target_year - 1)
-        else:
-            return d.replace(year=target_year)
-
-    extreme_data.index = extreme_data.index.map(shift_date)
-
-    hydro_start = pd.Timestamp(f"{target_year - 1}-11-01")
-    hydro_end = pd.Timestamp(f"{target_year}-10-31")
-
-    flows_filtered = flows[(flows.index < hydro_start) | (flows.index > hydro_end)]
-    result = pd.concat([flows_filtered, extreme_data]).sort_index()
-
-    return result
-
-
-# Missing import
-import os
 
 
 def prepare_prior_12_months_data(full_historical_data, current_results):
